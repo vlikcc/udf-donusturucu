@@ -1,0 +1,38 @@
+{
+  "identifier" : "UDFDonusturucuProducts",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "499",
+      "familyShareable" : false,
+      "internalID" : "6750000001",
+      "localizations" : [
+        {
+          "description" : "Günlük limit olmadan sınırsız belge dönüştürme",
+          "displayName" : "Sınırsız Dönüştürme",
+          "locale" : "tr"
+        }
+      ],
+      "productID" : "com.evrakdonus.unlimited",
+      "referenceName" : "Sınırsız Dönüştürme",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "tr",
+    "_storefront" : "TUR",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

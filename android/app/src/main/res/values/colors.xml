@@ -1,0 +1,6 @@
+<resources>
+    <!-- iOS AccentNavy karşılığı: açık modda koyu lacivert, koyu modda açık lacivert -->
+    <color name="accent_navy_light">#1C3357</color>
+    <color name="accent_navy_dark">#668FD1</color>
+    <color name="launcher_background">#1C3357</color>
+</resources>

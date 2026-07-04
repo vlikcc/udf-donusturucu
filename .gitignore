@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# Android (kök .gitignore burada da geçerli olsun diye tekrarlanır; asıl kural android/.gitignore'da)
+android/.gradle/
+android/local.properties
+android/keystore.properties
+android/**/build/
+*.jks
+*.keystore
+
+# Claude Code oturum verisi
+.claude/
