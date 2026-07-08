@@ -10,8 +10,11 @@
   - `WordConverter.kt` (UDF → DOCX, elle OOXML + ZipOutputStream, ayrı geçici dizin yok)
   - `PdfConverter.kt` (UDF → PDF, tek `StaticLayout` + `android.graphics.pdf.PdfDocument` sayfalama — iOS'un TextKit/NSTextContainer yaklaşımının Android karşılığı)
   - `ConversionRepository.kt` (4 yönü + toplu dönüşüm + günlük hak düşümü + geçmiş kaydını birleştiren orkestrasyon; henüz UI'a bağlanmadı — bu Faz 4'ün işi)
-  - Bilinçli platform sadeleştirmeleri (kod içinde yorumlarla işaretli): PDF'den **hizalama** çıkarılamıyor (tüm çıkarılan paragraflar sola hizalı varsayılır), PDF'den **altı çizili** tespit edilemiyor (PDF'de ayrı bir vektör çizgisi, metin özniteliği değil), Android span sisteminde paragraf başına **iki yana yaslama** ve **paragraf boşluğu/satır aralığı** desteklenmiyor (sola hizalı + varsayılan boşluklarla gösterilir), RTF için gerçek zengin biçimlendirme render edilmiyor (zaten düzleştirilmiş metin gösteriliyor — iOS'un kendi RTF-başarısız yedek yolu da facto aynı sonucu veriyordu)
   - `DocxExtractorTest.kt` eklendi (saf JVM, Android bağımlılığı yok); `PdfExtractor`/`PdfConverter`/`WordConverter`/`UdfCreator` Android API'lerine dayandığından (Robolectric/cihaz gerekir) bu ortamda testleri yazılamadı
+- ✅ **Faz 3 sonrası ek iyileştirme turu:** kullanıcı isteğiyle üç bilinen sadeleştirme giderildi —
+  - **RTF artık düz metne değil, biçimlendirmeli paragraflara ayrıştırılıyor:** `UdfParser.parseRtfFormatted` RTF kontrol sözcüklerini (`\b`, `\i`, `\ul`, `\fsN`, `\par`) tek geçişte izleyip UYAP ile AYNI `UyapParagraph`/`UyapTextRun` modelini üretir; font/renk tablosu gibi görünmez gruplar (`\fonttbl` vb.) artık düz metne sızmıyor, ham RTF kaynak satır sonları da metne karışmıyor. Bu sayede RTF içeriği PDF/DOCX/önizlemede UYAP ile aynı yoldan kalın/italik/altı çizili olarak gösteriliyor. **Doğrulaması `simulate_rtf.py` ile üretilen `sample_rtf.udf` fikstürü ve yeni bir JUnit testiyle yapıldı** (Faz 2/3'ün diğer testleri gibi saf JVM — gerçekten çalıştırıldı değil, ama Python simülasyonuyla çapraz kontrol edildi).
+  - **PdfConverter artık paragraf başına ayrı `StaticLayout`** kuruyor (önceden tek büyük layout): bu sayede **iki yana yaslama** (`JUSTIFICATION_MODE_INTER_WORD`, API 26+), **paragraf öncesi/sonrası boşluk** (Y imleci ile birikimli uygulanıyor) ve **sağ girinti** (paragrafın kutusu sağdan daraltılarak) artık gerçekten uygulanıyor. `WordConverter` da aynı paragraf modelini kullanarak DOCX'e çok-run'lu (kalın/italik/altı çizili karışık) paragraflar yazıyor — bu ayrıca UYAP→DOCX yolunu da iyileştirdi (önceden yalnızca düz metin satırları yazılıyordu, iOS'un kendisi de bu sınırlamaya sahipti).
+  - **PdfExtractor artık hizalama ve altı çizili tespit ediyor:** hizalama, her satırın sol/sağ metin sınırları belgedeki ampirik sol/sağ kenarlarla karşılaştırılarak geometrik olarak çıkarılıyor; altı çizili, PDF içerik akışındaki `re` (dikdörtgen) operatörü için özel bir `OperatorProcessor` kaydedilip ince/geniş dikdörtgenler (çizgi adayı) satırların konumuyla çakıştırılarak tespit ediliyor. ⚠️ **Bu, projenin en riskli/en az doğrulanabilir parçasıdır** — PdfBox-Android'in düşük seviye `OperatorProcessor` API'sini kullanır, CTM (rotasyon/ölçek) dönüşümü uygulamaz (yalnızca basit Y ekseni çevirme yapar) ve bu ortamda hiç derlenip test edilemedi. Android Studio'da ilk denenmesi gereken, gerçek altı çizili/hizalamalı bir PDF ile `PdfExtractor`'ın davranışı olmalı.
 - ✅ **Faz 4 tamamlandı:** Ekranlar gerçek işlevle bağlandı —
   - `ConversionFlowViewModel.kt`: Ana ekran → Dönüşüm → Sonuç arasında paylaşılan durum (seçili dosyalar, yön, format, ilerleme, sonuçlar); `AppNavHost` düzeyinde tek örnek
   - `FileCopier.kt`: SAF `content://` URI'lerini `cacheDir`e kopyalar (her seçim kendi alt klasöründe — orijinal dosya adı korunur)
@@ -40,13 +43,15 @@
 
 ## İlk Doğrulama Adımları (Android Studio'da)
 
-1. `android/` klasörünü Android Studio'da aç, Gradle senkronizasyonunun hatasız tamamlandığını doğrula (özellikle Play Billing Library API'leri — bkz. Faz 5 notu).
-2. `./gradlew testDebugUnitTest` çalıştır — `UdfParserTest`, `UdfZipTest`, `DocxExtractorTest` içindeki 12 testin geçtiğini doğrula; offset/uzunluk hesaplarında hata varsa fikstür veya assertion'ı birlikte düzeltiriz.
+1. `android/` klasörünü Android Studio'da aç, Gradle senkronizasyonunun hatasız tamamlandığını doğrula (özellikle Play Billing Library API'leri — bkz. Faz 5 notu — **ve `PdfExtractor.kt`'deki `OperatorProcessor`/`re` kaydı — bkz. ek iyileştirme turu notu**).
+2. `./gradlew testDebugUnitTest` çalıştır — `UdfParserTest` (RTF testi dahil), `UdfZipTest`, `DocxExtractorTest` içindeki 13 testin geçtiğini doğrula; offset/uzunluk hesaplarında hata varsa fikstür veya assertion'ı birlikte düzeltiriz.
 3. Uygulamayı bir cihaz/emülatörde çalıştır, onboarding → ana ekran akışını dene.
 4. Gerçek bir UYAP `.udf` dosyasıyla UDF→PDF ve UDF→DOCX dene; ardından PDF→UDF ve DOCX→UDF dene.
 5. **Kritik test:** Android'in ürettiği `.udf` dosyasını UYAP Doküman Editörü'nde aç — bu projenin asıl başarı ölçütü.
-6. Test reklam ID'leriyle banner/interstitial/rewarded akışlarının çalıştığını, günlük limitin (3) doğru işlediğini, "Reklam İzle" ile +1 hak kazanıldığını doğrula.
-7. Sandbox/lisans test hesabıyla Billing satın alma akışını dene (yalnızca AAB bir test kanalına yüklendikten sonra test edilebilir).
+6. **Yeni:** İçinde kalın/italik/altı çizili/iki yana yaslanmış paragraflar olan bir Word belgesini PDF'e çevirip PDF'den tekrar UDF'e çevirerek (round-trip) hizalama ve altı çizilinin korunup korunmadığını gözle kontrol et — `PdfExtractor`'ın en riskli, hiç derlenmemiş kısmı budur.
+7. **Yeni:** Gerçek bir `.rtf` içerikli UDF (varsa) veya elle oluşturulmuş bir RTF belgesini dönüştürüp kalın/italik/altı çizilinin PDF ve DOCX çıktısına doğru yansıdığını doğrula.
+8. Test reklam ID'leriyle banner/interstitial/rewarded akışlarının çalıştığını, günlük limitin (3) doğru işlediğini, "Reklam İzle" ile +1 hak kazanıldığını doğrula.
+9. Sandbox/lisans test hesabıyla Billing satın alma akışını dene (yalnızca AAB bir test kanalına yüklendikten sonra test edilebilir).
 
 ## Bağlam (Context)
 

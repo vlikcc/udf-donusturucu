@@ -21,10 +21,12 @@ import com.velikececi.udfdonusturucu.ui.history.HistoryScreen
 import com.velikececi.udfdonusturucu.ui.main.MainScreen
 import com.velikececi.udfdonusturucu.ui.onboarding.OnboardingScreen
 import com.velikececi.udfdonusturucu.ui.paywall.PaywallScreen
+import com.velikececi.udfdonusturucu.ui.preview.DocumentFilePreview
 import com.velikececi.udfdonusturucu.ui.preview.DocumentPreviewScreen
 import com.velikececi.udfdonusturucu.ui.result.ResultScreen
 import com.velikececi.udfdonusturucu.ui.settings.SettingsScreen
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun AppNavHost(
@@ -92,6 +94,9 @@ fun AppNavHost(
                             popUpTo(Routes.MAIN) { inclusive = true }
                         }
                     },
+                    onOpenPreview = { file ->
+                        navController.navigate(Routes.previewFile(file.absolutePath))
+                    },
                 )
             }
             composable(Routes.HISTORY) {
@@ -116,6 +121,15 @@ fun AppNavHost(
                 DocumentPreviewScreen(
                     recordId = recordId,
                     container = container,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.PREVIEW_FILE) { backStackEntry ->
+                val path = backStackEntry.arguments?.getString(Routes.PREVIEW_FILE_ARG).orEmpty()
+                val file = path.takeIf { it.isNotEmpty() }?.let(::File)
+                DocumentFilePreview(
+                    title = file?.name ?: "Önizleme",
+                    file = file,
                     onBack = { navController.popBackStack() },
                 )
             }

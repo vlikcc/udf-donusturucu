@@ -2,12 +2,15 @@ package com.velikececi.udfdonusturucu.core.parser
 
 import com.velikececi.udfdonusturucu.core.model.UdfContentType
 import com.velikececi.udfdonusturucu.core.model.UdfParserException
+import com.velikececi.udfdonusturucu.core.model.UyapTextRun
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+
+private fun UyapTextRun.text(fullText: String): String = fullText.substring(startOffset, startOffset + length)
 
 /**
  * Fikstürler `app/src/test/resources` altında `build_fixtures.py` ile üretildi (gerçek UYAP
@@ -123,6 +126,40 @@ class UdfParserTest {
         assertTrue(sections[0].body.contains("Bu davanın konusu şudur."))
         assertEquals("SONUÇ:", sections[1].title)
         assertEquals("Talep sonucu buradadır.", sections[1].body)
+    }
+
+    @Test
+    fun `RTF icerik font tablosunu atlar ve kalin-italik-alti cizili run'lari dogru sinirlar`() {
+        // Beklenen değerler algoritmanın Python simülasyonuyla (simulate_rtf.py) üretildi.
+        val doc = UdfParser.parse(fixture("sample_rtf.udf"))
+
+        assertEquals(UdfContentType.RTF, doc.content.contentType)
+        assertEquals("Hello world plain.\nSecond italic and underlined end.\n", doc.content.text)
+
+        val paragraphs = doc.content.paragraphs
+        assertEquals(2, paragraphs.size)
+
+        val p1 = paragraphs[0]
+        assertEquals(3, p1.runs.size)
+        assertEquals("Hello ", p1.runs[0].text(doc.content.text))
+        assertTrue(!p1.runs[0].bold)
+        assertEquals("world", p1.runs[1].text(doc.content.text))
+        assertTrue(p1.runs[1].bold)
+        assertEquals(" plain.", p1.runs[2].text(doc.content.text))
+        assertTrue(!p1.runs[2].bold)
+
+        val p2 = paragraphs[1]
+        assertEquals(5, p2.runs.size)
+        assertEquals("Second ", p2.runs[0].text(doc.content.text))
+        assertEquals("italic", p2.runs[1].text(doc.content.text))
+        assertTrue(p2.runs[1].italic)
+        assertEquals(" and ", p2.runs[2].text(doc.content.text))
+        assertEquals("underlined", p2.runs[3].text(doc.content.text))
+        assertTrue(p2.runs[3].underline)
+        assertEquals(" end.", p2.runs[4].text(doc.content.text))
+
+        // Font tablosundaki "Times;" düz metne sızmamalı.
+        assertTrue(!doc.content.text.contains("Times"))
     }
 
     @Test

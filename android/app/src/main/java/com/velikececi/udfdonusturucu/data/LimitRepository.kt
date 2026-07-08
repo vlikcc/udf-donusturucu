@@ -37,6 +37,7 @@ class LimitRepository(
     data class LimitState(
         val isPremium: Boolean = false,
         val remainingConversions: Int = MAX_FREE_CONVERSIONS,
+        val totalAllowedConversions: Int = MAX_FREE_CONVERSIONS,
     ) {
         val canConvert: Boolean get() = isPremium || remainingConversions > 0
     }
@@ -48,14 +49,19 @@ class LimitRepository(
         context.appDataStore.data
             .onEach { prefs ->
                 val isPremium = prefs[PREMIUM_KEY] ?: false
+                val bonus = prefs[BONUS_KEY] ?: 0
+                val totalAllowed = MAX_FREE_CONVERSIONS + bonus
                 val remaining = if (isPremium) {
                     Int.MAX_VALUE
                 } else {
                     val used = prefs[DAILY_COUNT_KEY] ?: 0
-                    val bonus = prefs[BONUS_KEY] ?: 0
-                    (MAX_FREE_CONVERSIONS + bonus - used).coerceAtLeast(0)
+                    (totalAllowed - used).coerceAtLeast(0)
                 }
-                _state.value = LimitState(isPremium = isPremium, remainingConversions = remaining)
+                _state.value = LimitState(
+                    isPremium = isPremium,
+                    remainingConversions = remaining,
+                    totalAllowedConversions = totalAllowed,
+                )
             }
             .launchIn(externalScope)
 

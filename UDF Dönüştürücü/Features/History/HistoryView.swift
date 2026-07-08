@@ -6,6 +6,7 @@ struct HistoryView: View {
     @ObservedObject var limitService = LimitService.shared
 
     @State private var shareURL: URL?
+    @State private var previewURL: URL?
     @State private var showExporter = false
     @State private var exportData: Data?
     @State private var exportFileName = ""
@@ -69,6 +70,9 @@ struct HistoryView: View {
         .sheet(item: $shareURL) { url in
             ActivityViewController(activityItems: [url])
         }
+        .navigationDestination(item: $previewURL) { url in
+            DocumentPreviewView(url: url)
+        }
         .fileExporter(
             isPresented: $showExporter,
             document: ExportFileDocument(data: exportData ?? Data()),
@@ -109,27 +113,21 @@ struct HistoryView: View {
 
             // Action buttons
             HStack(spacing: 12) {
-                Button {
+                DocumentActionButton(title: "Görüntüle", systemImage: "eye") {
+                    if let url = record.resolvedURL {
+                        previewURL = url
+                    }
+                }
+
+                DocumentActionButton(title: "Paylaş", systemImage: "square.and.arrow.up") {
                     if let url = record.resolvedURL {
                         shareURL = url
                     }
-                } label: {
-                    Label("Paylaş", systemImage: "square.and.arrow.up")
-                        .font(.subheadline)
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .tint(AppTheme.navy)
 
-                Button {
+                DocumentActionButton(title: "Kaydet", systemImage: "folder.badge.plus", tint: .green) {
                     saveToFiles(record: record)
-                } label: {
-                    Label("Kaydet", systemImage: "folder.badge.plus")
-                        .font(.subheadline)
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .tint(.green)
             }
         }
         .padding(.vertical, 4)

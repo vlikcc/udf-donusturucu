@@ -2,9 +2,9 @@ package com.velikececi.udfdonusturucu.core.converters
 
 import android.content.Context
 import com.velikececi.udfdonusturucu.core.model.ConversionException
-import com.velikececi.udfdonusturucu.core.model.UdfContentType
 import com.velikececi.udfdonusturucu.core.model.UdfDocument
 import com.velikececi.udfdonusturucu.core.model.UdfTable
+import com.velikececi.udfdonusturucu.core.model.UyapParagraph
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -114,12 +114,24 @@ object WordConverter {
             body.append(paragraph(text = ""))
         }
 
-        if (document.content.contentType == UdfContentType.UYAP || document.content.sections.isEmpty()) {
-            document.content.text.split("\n").forEach { line -> body.append(paragraph(text = line)) }
-        } else {
-            for (section in document.content.sections) {
-                section.title?.let { body.append(paragraph(text = it, style = "Heading2")) }
-                section.body.split("\n").forEach { line -> body.append(paragraph(text = line)) }
+        val paragraphs = document.content.paragraphs
+        when {
+            // UYAP ve biçimlendirmeli RTF içeriği (bkz. UdfParser.parseRtfFormatted): run bazlı
+            // kalın/italik/altı çizili biçim, DOCX'e de aktarılır.
+            paragraphs.isNotEmpty() -> {
+                val text = document.content.text
+                for (para in paragraphs) {
+                    body.append(buildFormattedParagraphXml(text, para))
+                }
+            }
+            document.content.sections.isEmpty() -> {
+                document.content.text.split("\n").forEach { line -> body.append(paragraph(text = line)) }
+            }
+            else -> {
+                for (section in document.content.sections) {
+                    section.title?.let { body.append(paragraph(text = it, style = "Heading2")) }
+                    section.body.split("\n").forEach { line -> body.append(paragraph(text = line)) }
+                }
             }
         }
 
@@ -157,6 +169,43 @@ object WordConverter {
         val rPrBlock = if (rPr.isEmpty()) "" else "<w:rPr>$rPr</w:rPr>"
 
         return "<w:p>$pPrBlock<w:r>$rPrBlock<w:t xml:space=\"preserve\">$escapedText</w:t></w:r></w:p>"
+    }
+
+    /** [UyapParagraph] run'larını (kalın/italik/altı çizili/boyut) ve hizalamayı (iki yana yasla dahil) korur. */
+    private fun buildFormattedParagraphXml(fullText: String, paragraph: UyapParagraph): String {
+        val firstRun = paragraph.runs.firstOrNull() ?: return ""
+        val lastRun = paragraph.runs.last()
+        val paraStart = firstRun.startOffset
+        val paraEnd = (lastRun.startOffset + lastRun.length).coerceAtMost(fullText.length)
+        if (paraStart >= fullText.length || paraStart >= paraEnd) return ""
+        val paraText = fullText.substring(paraStart, paraEnd)
+
+        val jc = when (paragraph.alignment) {
+            1 -> "center"
+            2 -> "right"
+            3 -> "both"
+            else -> null
+        }
+        val pPrBlock = if (jc != null) "<w:pPr><w:jc w:val=\"$jc\"/></w:pPr>" else ""
+
+        val runsXml = StringBuilder()
+        for (run in paragraph.runs) {
+            val localStart = (run.startOffset - paraStart).coerceIn(0, paraText.length)
+            val localEnd = (localStart + run.length).coerceIn(localStart, paraText.length)
+            if (localEnd <= localStart) continue
+            val runText = paraText.substring(localStart, localEnd)
+
+            val rPr = StringBuilder()
+            if (run.bold) rPr.append("<w:b/>")
+            if (run.italic) rPr.append("<w:i/>")
+            if (run.underline) rPr.append("<w:u w:val=\"single\"/>")
+            val halfPoints = ((run.fontSize ?: 12f) * 2).toInt()
+            rPr.append("<w:sz w:val=\"$halfPoints\"/><w:szCs w:val=\"$halfPoints\"/>")
+
+            runsXml.append("<w:r><w:rPr>$rPr</w:rPr><w:t xml:space=\"preserve\">${escapeXml(runText)}</w:t></w:r>")
+        }
+
+        return "<w:p>$pPrBlock$runsXml</w:p>"
     }
 
     private fun buildTableXml(table: UdfTable): String {

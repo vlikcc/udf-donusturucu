@@ -67,7 +67,7 @@ final class PurchaseService: ObservableObject {
                 }
                 purchaseState = .idle
             }
-        } catch let error as Product.StoreKitError {
+        } catch let error as StoreKitError {
             productsLoaded = true
             logger.error("StoreKit hatası: \(error.localizedDescription)")
             debugLog = "StoreKit Error: \(error)"

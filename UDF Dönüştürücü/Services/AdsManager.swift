@@ -16,7 +16,7 @@ final class AdsManager: NSObject {
     static let interstitialUnitID          = "ca-app-pub-3940256099942544/4411468910"
     static let rewardedInterstitialUnitID  = "ca-app-pub-3940256099942544/5354046379"
     #else
-    static let bannerUnitID                = "ca-app-pub-3940256099942544/2934735716"
+    static let bannerUnitID                = "ca-app-pub-1041738122428212/3416612776"
     static let interstitialUnitID          = "ca-app-pub-1041738122428212/4329554409"
     static let rewardedInterstitialUnitID  = "ca-app-pub-1041738122428212/2380645547"
     #endif

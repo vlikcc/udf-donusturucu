@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 data class MainUiState(
     val isPremium: Boolean = false,
     val remainingConversions: Int = LimitRepository.MAX_FREE_CONVERSIONS,
+    val totalAllowedConversions: Int = LimitRepository.MAX_FREE_CONVERSIONS,
     val recentConversions: List<ConversionRecord> = emptyList(),
 ) {
     val canConvert: Boolean get() = isPremium || remainingConversions > 0
@@ -35,6 +36,7 @@ class MainViewModel(
         MainUiState(
             isPremium = limitState.isPremium,
             remainingConversions = limitState.remainingConversions,
+            totalAllowedConversions = limitState.totalAllowedConversions,
             recentConversions = historyRepository.availableRecords(limitState.isPremium).take(5),
         )
     }.stateIn(

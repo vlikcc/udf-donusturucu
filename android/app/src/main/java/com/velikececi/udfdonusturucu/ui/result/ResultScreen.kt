@@ -14,7 +14,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -52,8 +54,14 @@ private const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wor
  * Ekran açıldığında [com.velikececi.udfdonusturucu.ads.AdsManager.showInterstitialIfDue]
  * çağrılır (her 2. sonuç ekranında bir geçişli reklam — iOS `AdsManager` ile aynı sıklık kuralı).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResultScreen(container: AppContainer, flowViewModel: ConversionFlowViewModel, onDone: () -> Unit) {
+fun ResultScreen(
+    container: AppContainer,
+    flowViewModel: ConversionFlowViewModel,
+    onDone: () -> Unit,
+    onOpenPreview: (File) -> Unit = {},
+) {
     val state by flowViewModel.state.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -112,6 +120,7 @@ fun ResultScreen(container: AppContainer, flowViewModel: ConversionFlowViewModel
                 items(state.outcomes) { outcome ->
                     OutcomeRow(
                         outcome = outcome,
+                        onPreview = { outcome.outputFile?.let { onOpenPreview(it) } },
                         onShare = { outcome.outputFile?.let { ShareUtils.shareFile(context, it) } },
                         onSave = { outcome.outputFile?.let { triggerSave(it) } },
                     )
@@ -131,7 +140,12 @@ fun ResultScreen(container: AppContainer, flowViewModel: ConversionFlowViewModel
 }
 
 @Composable
-private fun OutcomeRow(outcome: ConversionOutcome, onShare: () -> Unit, onSave: () -> Unit) {
+private fun OutcomeRow(
+    outcome: ConversionOutcome,
+    onPreview: () -> Unit,
+    onShare: () -> Unit,
+    onSave: () -> Unit,
+) {
     ListItem(
         headlineContent = { Text(outcome.originalFileName) },
         supportingContent = {
@@ -147,6 +161,9 @@ private fun OutcomeRow(outcome: ConversionOutcome, onShare: () -> Unit, onSave: 
         trailingContent = {
             if (outcome.success && outcome.outputFile != null) {
                 Row {
+                    IconButton(onClick = onPreview) {
+                        Icon(Icons.Filled.Visibility, contentDescription = "Görüntüle")
+                    }
                     IconButton(onClick = onShare) {
                         Icon(Icons.Filled.Share, contentDescription = "Paylaş")
                     }

@@ -18,3 +18,8 @@ android/**/build/
 
 # Claude Code oturum verisi
 .claude/
+
+.dfmt/
+
+# AdMob doğrulama dosyası — sunucuya elle yüklenir, repoda tutulmaz
+web/app-ads.txt

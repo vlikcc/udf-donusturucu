@@ -48,7 +48,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.velikececi.udfdonusturucu.data.ConversionDirection
 import com.velikececi.udfdonusturucu.data.ConversionRecord
 import com.velikececi.udfdonusturucu.data.FileCopier
-import com.velikececi.udfdonusturucu.data.LimitRepository
 import com.velikececi.udfdonusturucu.data.OutputFormat
 import com.velikececi.udfdonusturucu.di.AppContainer
 import com.velikececi.udfdonusturucu.ui.components.BannerAd
@@ -140,6 +139,7 @@ fun MainScreen(
                 DailyLimitCard(
                     isPremium = uiState.isPremium,
                     remaining = uiState.remainingConversions,
+                    totalAllowed = uiState.totalAllowedConversions,
                     onUpgradeClick = onNavigatePaywall,
                     onWatchAdClick = {
                         context.findActivity()?.let { activity -> container.adsManager.showRewarded(activity) }
@@ -258,6 +258,7 @@ private fun FormatToggle(format: OutputFormat, onFormatChange: (OutputFormat) ->
 private fun DailyLimitCard(
     isPremium: Boolean,
     remaining: Int,
+    totalAllowed: Int,
     onUpgradeClick: () -> Unit,
     onWatchAdClick: () -> Unit,
 ) {
@@ -271,7 +272,7 @@ private fun DailyLimitCard(
                 text = if (isPremium) {
                     "Sınırsız (Premium)"
                 } else {
-                    "$remaining / ${LimitRepository.MAX_FREE_CONVERSIONS} kaldı"
+                    "$remaining / $totalAllowed kaldı"
                 },
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
@@ -279,8 +280,7 @@ private fun DailyLimitCard(
             if (!isPremium) {
                 LinearProgressIndicator(
                     progress = {
-                        remaining.coerceIn(0, LimitRepository.MAX_FREE_CONVERSIONS) /
-                            LimitRepository.MAX_FREE_CONVERSIONS.toFloat()
+                        remaining.coerceIn(0, totalAllowed) / totalAllowed.toFloat()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

@@ -5,6 +5,7 @@ struct ResultView: View {
     let results: [ConversionResult]
 
     @State private var shareURL: URL?
+    @State private var previewURL: URL?
     @State private var showExporter = false
     @State private var exportData: Data?
     @State private var exportFileName = ""
@@ -38,6 +39,9 @@ struct ResultView: View {
         }
         .sheet(item: $shareURL) { url in
             ActivityViewController(activityItems: [url])
+        }
+        .navigationDestination(item: $previewURL) { url in
+            DocumentPreviewView(url: url)
         }
         .fileExporter(
             isPresented: $showExporter,
@@ -87,21 +91,18 @@ struct ResultView: View {
 
             if result.success, let url = result.outputURL {
                 HStack(spacing: 12) {
-                    Button {
-                        shareURL = url
-                    } label: {
-                        Label("Paylaş", systemImage: "square.and.arrow.up")
-                            .font(.subheadline)
+                    DocumentActionButton(title: "Görüntüle", systemImage: "eye") {
+                        previewURL = url
                     }
 
-                    Button {
+                    DocumentActionButton(title: "Paylaş", systemImage: "square.and.arrow.up") {
+                        shareURL = url
+                    }
+
+                    DocumentActionButton(title: "Kaydet", systemImage: "folder") {
                         saveToFiles(url: url, format: result.format)
-                    } label: {
-                        Label("Kaydet", systemImage: "folder")
-                            .font(.subheadline)
                     }
                 }
-                .buttonStyle(.bordered)
             }
 
             if let error = result.error {

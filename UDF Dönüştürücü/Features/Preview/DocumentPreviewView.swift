@@ -6,12 +6,29 @@ struct DocumentPreviewView: View {
     let url: URL
 
     @State private var showShareSheet = false
+    @State private var udfState: UDFPreviewState = .loading
+    @State private var pdfState: PDFPreviewState = .loading
+
+    private enum UDFPreviewState {
+        case loading
+        case loaded(AttributedString)
+        case failed(String)
+    }
+
+    private enum PDFPreviewState {
+        case loading
+        case loaded(PDFDocument)
+        case failed(String)
+    }
 
     var body: some View {
         Group {
-            if url.pathExtension.lowercased() == "pdf" {
-                PDFKitView(url: url)
-            } else {
+            switch url.pathExtension.lowercased() {
+            case "pdf":
+                pdfPreview
+            case "udf":
+                udfPreview
+            default:
                 // For DOCX and other formats, show text content or use QuickLook
                 QuickLookPreview(url: url)
             }
@@ -29,24 +46,99 @@ struct DocumentPreviewView: View {
         .sheet(isPresented: $showShareSheet) {
             ActivityViewController(activityItems: [url])
         }
+        .task(id: url) {
+            switch url.pathExtension.lowercased() {
+            case "udf":
+                await loadUDFPreview()
+            case "pdf":
+                await loadPDFPreview()
+            default:
+                break
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var udfPreview: some View {
+        switch udfState {
+        case .loading:
+            ProgressView()
+        case .loaded(let text):
+            ScrollView {
+                Text(text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+        case .failed(let message):
+            ContentUnavailableView(message, systemImage: "exclamationmark.triangle")
+        }
+    }
+
+    @ViewBuilder
+    private var pdfPreview: some View {
+        switch pdfState {
+        case .loading:
+            ProgressView()
+        case .loaded(let document):
+            PDFKitView(document: document)
+        case .failed(let message):
+            ContentUnavailableView(message, systemImage: "exclamationmark.triangle")
+        }
+    }
+
+    private func loadUDFPreview() async {
+        udfState = .loading
+        let fileURL = url
+        let result = await Task.detached(priority: .userInitiated) { () -> Result<UDFDocument, Error> in
+            Result { try UDFParser.parse(fileURL: fileURL) }
+        }.value
+
+        switch result {
+        case .success(let document):
+            if let formatted = document.content.formattedString,
+               let attributed = try? AttributedString(formatted, including: \.uiKit) {
+                udfState = .loaded(attributed)
+            } else {
+                udfState = .loaded(AttributedString(document.content.text))
+            }
+        case .failure(let error):
+            udfState = .failed(error.localizedDescription)
+        }
+    }
+
+    private func loadPDFPreview() async {
+        pdfState = .loading
+        let fileURL = url
+        let document = await Task.detached(priority: .userInitiated) { () -> PDFDocument? in
+            PDFDocument(url: fileURL)
+        }.value
+
+        if let document {
+            pdfState = .loaded(document)
+        } else {
+            pdfState = .failed("PDF açılamadı.")
+        }
     }
 }
 
 struct PDFKitView: UIViewRepresentable {
-    let url: URL
+    let document: PDFDocument
 
     func makeUIView(context: Context) -> PDFView {
         let pdfView = PDFView()
         pdfView.autoScales = true
         pdfView.displayMode = .singlePageContinuous
         pdfView.displayDirection = .vertical
-        if let document = PDFDocument(url: url) {
-            pdfView.document = document
-        }
+        pdfView.document = document
         return pdfView
     }
 
-    func updateUIView(_ uiView: PDFView, context: Context) {}
+    func updateUIView(_ uiView: PDFView, context: Context) {
+        if uiView.document !== document {
+            uiView.document = document
+        }
+    }
 }
 
 struct QuickLookPreview: UIViewControllerRepresentable {

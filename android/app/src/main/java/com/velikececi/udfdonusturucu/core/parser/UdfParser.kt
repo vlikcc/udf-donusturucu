@@ -87,15 +87,18 @@ object UdfParser {
         val isHtml = lower.contains("<html") || lower.contains("<body")
 
         return when {
-            isRtf -> UdfContent(
-                text = stripRtfFormatting(text),
-                rawContent = text,
-                contentType = UdfContentType.RTF,
-                sections = emptyList(),
-                tables = emptyList(),
-                isRtf = true,
-                paragraphs = emptyList(),
-            )
+            isRtf -> {
+                val (plainText, paragraphs) = parseRtfFormatted(text)
+                UdfContent(
+                    text = plainText,
+                    rawContent = text,
+                    contentType = UdfContentType.RTF,
+                    sections = emptyList(),
+                    tables = emptyList(),
+                    isRtf = true,
+                    paragraphs = paragraphs,
+                )
+            }
             isHtml -> {
                 val plain = stripHtmlTags(text)
                 UdfContent(
@@ -300,69 +303,172 @@ object UdfParser {
         return if (parts.isEmpty()) null else parts.joinToString("\n")
     }
 
-    // MARK: - RTF Stripping
+    // MARK: - RTF Parsing (biçimlendirmeli)
 
-    private val rtfReplacements = listOf(
-        "\\par" to "\n", "\\line" to "\n", "\\tab" to "\t",
-        "\\pard" to "", "\\plain" to "",
-        "\\b0" to "", "\\b" to "", "\\i0" to "", "\\i" to "",
-        "\\ul0" to "", "\\ul" to "",
+    /** RTF gövdesinde metin içermeyen, atlanması gereken hedef (destination) grupları. */
+    private val rtfSkipDestinations = setOf(
+        "fonttbl", "colortbl", "stylesheet", "info", "generator", "pict",
+        "footer", "header", "footnote", "themedata", "colorschememapping",
+        "latentstyles", "listtable", "listoverridetable", "rsid", "xmlnstbl",
+        "datastore", "companyname", "operator", "creatim", "revtim",
     )
 
-    private fun stripRtfFormatting(rtf: String): String {
-        var result = rtf
-        val rtfStart = result.indexOf("{\\rtf")
-        if (rtfStart >= 0) result = result.substring(rtfStart)
+    private data class RtfCharState(
+        val bold: Boolean = false,
+        val italic: Boolean = false,
+        val underline: Boolean = false,
+        val fontSize: Float = 12f,
+    )
 
-        for ((pattern, replacement) in rtfReplacements) {
-            result = result.replace(pattern, replacement)
+    /**
+     * stripRtfFormatting'in (yalnızca düz metin üreten) yerini alır: RTF kontrol sözcüklerini
+     * (`\b`, `\i`, `\ul`, `\fsN`, `\par`) tek geçişte izleyerek hem düz metni hem de UYAP paragraf
+     * modeliyle aynı [UyapParagraph]/[UyapTextRun] yapısını üretir — böylece RTF içeriği de UYAP
+     * içeriğiyle aynı yoldan (PdfConverter/WordConverter/önizleme) zengin biçimlendirmeyle
+     * gösterilebilir. Eski sürüm control word'leri metinden SİLMEDEN önce pozisyonlarını kaybediyordu;
+     * bu yüzden offset tabanlı run üretimi mümkün değildi — bu yeniden yazım tek geçişte ilerler.
+     *
+     * Kapsam dışı bırakılan uç durumlar (bilinçli sadeleştirme): `\uN` Unicode kaçışları (nadir;
+     * `\'XX` onaltılık kaçışlar zaten destekleniyor) ve `\*` ile işaretlenmemiş tanınmayan hedef
+     * grupları (yalnızca yukarıdaki bilinen liste + `\*` öneki atlanır).
+     */
+    private fun parseRtfFormatted(rtf: String): Pair<String, List<UyapParagraph>> {
+        val body = rtf.indexOf("{\\rtf").let { if (it >= 0) rtf.substring(it) else rtf }
+
+        val plainText = StringBuilder()
+        val paragraphs = mutableListOf<UyapParagraph>()
+        var currentRuns = mutableListOf<UyapTextRun>()
+
+        var state = RtfCharState()
+        var runStartState = state
+        var runStart = 0
+
+        var groupDepth = 0
+        var skipDepth = -1
+        val stateStack = ArrayDeque<RtfCharState>()
+
+        fun flushRun(end: Int) {
+            if (end > runStart) {
+                currentRuns.add(
+                    UyapTextRun(
+                        startOffset = runStart,
+                        length = end - runStart,
+                        bold = runStartState.bold,
+                        underline = runStartState.underline,
+                        italic = runStartState.italic,
+                        fontSize = runStartState.fontSize,
+                        fontFamily = null,
+                    ),
+                )
+            }
+            runStart = end
         }
 
-        val cleaned = StringBuilder()
+        fun flushParagraph() {
+            flushRun(plainText.length)
+            if (currentRuns.isNotEmpty()) {
+                paragraphs.add(
+                    UyapParagraph(
+                        alignment = 0, spaceAbove = 0f, spaceBelow = 0f,
+                        leftIndent = 0f, rightIndent = 0f, firstLineIndent = 0f,
+                        hangingIndent = 0f, lineSpacing = 0f, tabStops = emptyList(),
+                        runs = currentRuns,
+                    ),
+                )
+            }
+            currentRuns = mutableListOf()
+        }
+
+        fun appendChar(c: Char) {
+            if (state != runStartState) {
+                flushRun(plainText.length)
+                runStartState = state
+            }
+            plainText.append(c)
+        }
+
         var i = 0
-        while (i < result.length) {
-            val ch = result[i]
-            if (ch == '\\' && i + 1 < result.length) {
-                val nextCh = result[i + 1]
-                when {
-                    nextCh == '\'' -> {
-                        val hexStart = i + 2
-                        val hexEnd = (hexStart + 2).coerceAtMost(result.length)
-                        if (hexEnd <= result.length && hexEnd > hexStart) {
-                            val hex = result.substring(hexStart, hexEnd)
-                            val code = hex.toIntOrNull(16)
-                            if (code != null) {
-                                val charset = WINDOWS_1254 ?: Charsets.ISO_8859_1
-                                cleaned.append(String(byteArrayOf(code.toByte()), charset))
-                            }
-                            i = hexEnd
-                            continue
+        while (i < body.length) {
+            val ch = body[i]
+            when {
+                ch == '{' -> {
+                    groupDepth++
+                    stateStack.addLast(state)
+                    i++
+                }
+                ch == '}' -> {
+                    if (groupDepth == skipDepth) skipDepth = -1
+                    groupDepth--
+                    if (stateStack.isNotEmpty()) state = stateStack.removeLast()
+                    i++
+                }
+                ch == '\\' && i + 1 < body.length && body[i + 1] == '*' -> {
+                    if (skipDepth < 0) skipDepth = groupDepth
+                    i += 2
+                }
+                ch == '\\' && i + 1 < body.length && body[i + 1] == '\'' -> {
+                    val hexStart = i + 2
+                    val hexEnd = (hexStart + 2).coerceAtMost(body.length)
+                    if (skipDepth < 0 && hexEnd > hexStart) {
+                        val code = body.substring(hexStart, hexEnd).toIntOrNull(16)
+                        if (code != null) {
+                            val charset = WINDOWS_1254 ?: Charsets.ISO_8859_1
+                            appendChar(String(byteArrayOf(code.toByte()), charset)[0])
                         }
                     }
-                    nextCh.isLetter() -> {
-                        var j = i + 1
-                        while (j < result.length && result[j].isLetter()) j++
-                        while (j < result.length && (result[j].isDigit() || result[j] == '-')) j++
-                        if (j < result.length && result[j] == ' ') j++
-                        i = j
-                        continue
-                    }
-                    else -> {
-                        cleaned.append(nextCh)
-                        i += 2
-                        continue
-                    }
+                    i = hexEnd
                 }
-            } else if (ch == '{' || ch == '}') {
-                i++
-                continue
-            } else {
-                cleaned.append(ch)
-            }
-            i++
-        }
+                ch == '\\' && i + 1 < body.length && body[i + 1].isLetter() -> {
+                    var j = i + 1
+                    while (j < body.length && body[j].isLetter()) j++
+                    val word = body.substring(i + 1, j)
+                    var k = j
+                    var negative = false
+                    if (k < body.length && body[k] == '-') { negative = true; k++ }
+                    val numStart = k
+                    while (k < body.length && body[k].isDigit()) k++
+                    val numValue = if (k > numStart) {
+                        body.substring(numStart, k).toIntOrNull()?.let { if (negative) -it else it }
+                    } else {
+                        null
+                    }
+                    if (k < body.length && body[k] == ' ') k++
 
-        return collapseBlankLines(cleaned.toString())
+                    if (skipDepth < 0) {
+                        when {
+                            word == "par" -> {
+                                flushParagraph()
+                                plainText.append('\n')
+                                runStart = plainText.length
+                            }
+                            word == "line" -> appendChar('\n')
+                            word == "tab" -> appendChar('\t')
+                            word == "b" -> state = state.copy(bold = (numValue ?: 1) != 0)
+                            word == "i" -> state = state.copy(italic = (numValue ?: 1) != 0)
+                            word == "ulnone" -> state = state.copy(underline = false)
+                            word == "ul" -> state = state.copy(underline = (numValue ?: 1) != 0)
+                            word.startsWith("ul") -> state = state.copy(underline = true)
+                            word == "fs" && numValue != null -> state = state.copy(fontSize = numValue / 2f)
+                            word == "plain" -> state = RtfCharState()
+                        }
+                        if (skipDepth < 0 && word in rtfSkipDestinations) skipDepth = groupDepth
+                    }
+                    i = k
+                }
+                ch == '\r' || ch == '\n' -> {
+                    // RTF kaynağındaki ham satır sonları yalnızca insan-okunur biçimlendirme
+                    // içindir, anlamsızdır — \par/\line dışında metne dahil edilmemeli.
+                    i++
+                }
+                else -> {
+                    if (skipDepth < 0) appendChar(ch)
+                    i++
+                }
+            }
+        }
+        flushParagraph()
+
+        return plainText.toString() to paragraphs
     }
 
     // MARK: - HTML Stripping

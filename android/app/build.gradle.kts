@@ -31,10 +31,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+        resourceConfigurations += setOf("tr")
 
         // Uygulama tamamen Türkçe; gereksiz dil kaynaklarının (kütüphanelerden gelen) APK/AAB'ye
         // dahil edilmesini önler.
-        resConfigs("tr")
     }
 
     signingConfigs {

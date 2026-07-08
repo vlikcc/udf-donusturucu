@@ -12,6 +12,8 @@ final class LimitService: ObservableObject {
     private let bonusConversionsKey = "bonusConversions"
 
     @Published var remainingConversions: Int = 3
+    @Published var usedConversions: Int = 0
+    @Published var totalAllowedConversions: Int = 3
     @Published var isPremium: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
@@ -92,6 +94,8 @@ final class LimitService: ObservableObject {
         resetIfNewDay()
         let used = UserDefaults.standard.integer(forKey: dailyLimitKey)
         let bonus = UserDefaults.standard.integer(forKey: bonusConversionsKey)
-        remainingConversions = max(0, maxFreeConversions + bonus - used)
+        usedConversions = used
+        totalAllowedConversions = maxFreeConversions + bonus
+        remainingConversions = max(0, totalAllowedConversions - used)
     }
 }

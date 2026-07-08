@@ -216,8 +216,7 @@ struct ContentView: View {
                         Text("Sınırsız")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                     } else {
-                        let used = 3 - limitService.remainingConversions
-                        Text("\(used) / 3")
+                        Text("\(limitService.usedConversions) / \(limitService.totalAllowedConversions)")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                     }
                 }
@@ -255,8 +254,10 @@ struct ContentView: View {
             }
 
             if !limitService.isPremium {
-                let used = 3 - limitService.remainingConversions
-                ProgressView(value: Double(used), total: 5)
+                ProgressView(
+                    value: Double(min(limitService.usedConversions, limitService.totalAllowedConversions)),
+                    total: Double(limitService.totalAllowedConversions)
+                )
                     .tint(AppTheme.navy)
 
                 HStack(spacing: 4) {
