@@ -124,7 +124,7 @@ struct PrivacyPolicyView: View {
                     Text("Dönüştürme geçmişi (yalnızca dosya adı ve tarih bilgisi) cihazınızda yerel olarak saklanır. Bu bilgiler üçüncü taraflarla paylaşılmaz ve yalnızca uygulamanın geçmiş ekranında görülebilir.")
 
                     Text("Uygulama İçi Satın Alma").font(.headline)
-                    Text("Premium özellikler abonelik (haftalık/yıllık) veya tek seferlik ödeme ile satın alınabilir. Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir. Ödeme ve işlem bilgileri yalnızca Apple tarafından yönetilir; uygulama bu bilgilere erişemez.")
+                    Text("Premium özellikler aylık/yıllık abonelik veya tek seferlik ödeme ile satın alınabilir. Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir. Ödeme ve işlem bilgileri yalnızca Apple tarafından yönetilir; uygulama bu bilgilere erişemez.")
 
                     Text("Analitik Veriler").font(.headline)
                     Text("Uygulamayı geliştirmek amacıyla anonim kullanım istatistikleri (örn. ekran görüntülenme ve satın alma olayları) Google Firebase Analytics aracılığıyla toplanabilir. Bu veriler kimliğinizi tanımlamaz ve belge içeriklerinizle ilişkilendirilmez.")
@@ -178,7 +178,7 @@ struct TermsView: View {
                     Text("• Ücretsiz kullanıcılar günlük 1 dönüştürme hakkına sahiptir.\n• Reklam izleyerek günde en fazla 2 ek dönüştürme hakkı kazanılabilir.\n• Limit her gün gece yarısı sıfırlanır.\n• Dönüştürme geçmişi 7 gün boyunca saklanır.")
 
                     Text("Premium Üyelik").font(.headline)
-                    Text("• Premium; haftalık abonelik, yıllık abonelik veya tek seferlik \"Ömür Boyu\" satın alma ile edinilebilir.\n• Yıllık abonelik 3 günlük ücretsiz deneme içerir; deneme süresi bitmeden iptal edilmezse abonelik ücreti tahsil edilir.\n• Abonelikler, dönem sonunda otomatik olarak yenilenir. Yenilemeyi App Store hesap ayarlarınızdan istediğiniz zaman kapatabilirsiniz.\n• Premium; sınırsız dönüştürme sağlar, tüm reklamları kaldırır ve dönüştürme geçmişini 30 güne uzatır.")
+                    Text("• Premium; aylık abonelik (₺49,99/ay), yıllık abonelik (₺499,99/yıl) veya tek seferlik \"Ömür Boyu\" satın alma (₺999,99) ile edinilebilir.\n• Abonelikler, dönem sonunda otomatik olarak yenilenir. Yenilemeyi App Store hesap ayarlarınızdan istediğiniz zaman kapatabilirsiniz.\n• Premium; sınırsız dönüştürme sağlar, tüm reklamları kaldırır ve dönüştürme geçmişini 30 güne uzatır.")
                     Text("Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir ve Apple'ın standart iade politikalarına tabidir. İade talepleri için doğrudan Apple ile iletişime geçmeniz gerekmektedir.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

@@ -10,9 +10,13 @@ final class PurchaseService: ObservableObject {
     static let shared = PurchaseService()
 
     static let unlimitedProductID = "com.evrakdonus.unlimited"
-    static let weeklyProductID = "com.evrakdonus.pro.weekly"
+    static let monthlyProductID = "com.evrakdonus.pro.monthly"
     static let yearlyProductID = "com.evrakdonus.pro.yearly"
-    static let allProductIDs: Set<String> = [unlimitedProductID, weeklyProductID, yearlyProductID]
+    /// Eski haftalık abonelik — mevcut abonelere erişim için entitlement kontrolünde tutulur.
+    static let legacyWeeklyProductID = "com.evrakdonus.pro.weekly"
+
+    static let paywallProductIDs: Set<String> = [monthlyProductID, yearlyProductID, unlimitedProductID]
+    static let allProductIDs: Set<String> = paywallProductIDs.union([legacyWeeklyProductID])
 
     @Published var products: [Product] = []
     @Published var purchaseState: PurchaseState = .idle
@@ -29,7 +33,7 @@ final class PurchaseService: ObservableObject {
 
     private func priority(for productID: String) -> Int {
         switch productID {
-        case Self.weeklyProductID: return 0
+        case Self.monthlyProductID: return 0
         case Self.yearlyProductID: return 1
         case Self.unlimitedProductID: return 2
         default: return 3
@@ -78,7 +82,7 @@ final class PurchaseService: ObservableObject {
             let bundleID = Bundle.main.bundleIdentifier ?? "bilinmiyor"
             logger.info("Ürünler yükleniyor — Bundle ID: \(bundleID)")
 
-            let storeProducts = try await Product.products(for: Array(Self.allProductIDs))
+            let storeProducts = try await Product.products(for: Array(Self.paywallProductIDs))
             products = storeProducts
             productsLoaded = true
 

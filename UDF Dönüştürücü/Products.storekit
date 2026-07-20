@@ -5,18 +5,18 @@
   ],
   "products" : [
     {
-      "displayPrice" : "499",
+      "displayPrice" : "999.99",
       "familyShareable" : false,
       "internalID" : "6750000001",
       "localizations" : [
         {
-          "description" : "Günlük limit olmadan sınırsız belge dönüştürme",
-          "displayName" : "Sınırsız Dönüştürme",
+          "description" : "Tek seferlik ödeme ile tüm Pro özellikler kalıcı olarak açılır",
+          "displayName" : "Ömür Boyu Pro",
           "locale" : "tr"
         }
       ],
       "productID" : "com.evrakdonus.unlimited",
-      "referenceName" : "Sınırsız Dönüştürme",
+      "referenceName" : "Ömür Boyu Pro",
       "type" : "NonConsumable"
     }
   ],
@@ -43,21 +43,21 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "39.99",
+          "displayPrice" : "49.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6750000101",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Haftalık sınırsız belge dönüştürme",
-              "displayName" : "Pro Haftalık",
+              "description" : "Aylık sınırsız belge dönüştürme ve Pro araçlar",
+              "displayName" : "Pro Aylık",
               "locale" : "tr"
             }
           ],
-          "productID" : "com.evrakdonus.pro.weekly",
-          "recurringSubscriptionPeriod" : "P1W",
-          "referenceName" : "Pro Haftalık",
+          "productID" : "com.evrakdonus.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Aylık",
           "subscriptionGroupID" : "6750000100",
           "type" : "RecurringSubscription"
         },
@@ -68,20 +68,14 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "299.99",
+          "displayPrice" : "499.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6750000102",
-          "introductoryOffer" : {
-            "displayPrice" : "0",
-            "internalID" : "6750000103",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
-          },
+          "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Yıllık sınırsız belge dönüştürme — 3 gün ücretsiz deneme",
+              "description" : "Yıllık sınırsız belge dönüştürme ve Pro araçlar",
               "displayName" : "Pro Yıllık",
               "locale" : "tr"
             }
