@@ -19,6 +19,7 @@ struct UDFEditorView: View {
     @State private var showDiscardAlert = false
     @State private var showFieldSheet = false
     @State private var activeEditorKey: String?
+    @State private var didAutoPresentPicker = false
 
     private var hasChanges: Bool {
         UDFEditorService.fingerprint(document) != originalFingerprint
@@ -79,11 +80,31 @@ struct UDFEditorView: View {
                 bottomBar
             } else {
                 Spacer()
-                ContentUnavailableView(
-                    "UDF Seçin",
-                    systemImage: "doc.fill",
-                    description: Text("Düzenlemek istediğiniz UDF dosyasını seçin.")
-                )
+                VStack(spacing: 16) {
+                    ContentUnavailableView(
+                        "UDF Seçin",
+                        systemImage: "doc.fill",
+                        description: Text("Düzenlemek istediğiniz UDF dosyasını seçin.")
+                    )
+
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+
+                    Button {
+                        showPicker = true
+                    } label: {
+                        Label("UDF Dosyası Seç", systemImage: "folder")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppTheme.navy)
+                    .padding(.horizontal, 32)
+                }
                 Spacer()
             }
         }
@@ -101,7 +122,7 @@ struct UDFEditorView: View {
             }
         }
         .sheet(isPresented: $showPicker) {
-            ToolDocumentPicker(types: [.udfType]) { urls in
+            ToolDocumentPicker(types: UTType.udfPickerTypes) { urls in
                 showPicker = false
                 guard let first = urls.first else { return }
                 loadDocument(from: first)
@@ -128,7 +149,11 @@ struct UDFEditorView: View {
             Text("Başka bir dosya seçerseniz kaydedilmemiş değişiklikler silinir.")
         }
         .onAppear {
-            if sourceURL == nil { showPicker = true }
+            guard !didAutoPresentPicker, sourceURL == nil, !isLoading else { return }
+            didAutoPresentPicker = true
+            DispatchQueue.main.async {
+                showPicker = true
+            }
         }
     }
 
@@ -328,7 +353,6 @@ struct UDFEditorView: View {
         isLoading = true
         errorMessage = nil
         resultURL = nil
-        sourceURL = url
 
         Task {
             do {
@@ -336,6 +360,7 @@ struct UDFEditorView: View {
                     try UDFEditorService.load(from: url)
                 }.value
                 await MainActor.run {
+                    sourceURL = doc.sourceURL
                     baseName = doc.baseName
                     document = doc.model
                     originalFingerprint = UDFEditorService.fingerprint(doc.model)
@@ -346,7 +371,6 @@ struct UDFEditorView: View {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isLoading = false
-                    sourceURL = nil
                 }
             }
         }
@@ -394,5 +418,6 @@ struct UDFEditorView: View {
         resultURL = nil
         errorMessage = nil
         activeEditorKey = nil
+        didAutoPresentPicker = true
     }
 }

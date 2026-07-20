@@ -202,6 +202,7 @@ struct ToolDocumentPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
         picker.allowsMultipleSelection = allowsMultipleSelection
+        picker.shouldShowFileExtensions = true
         picker.delegate = context.coordinator
         return picker
     }
@@ -211,11 +212,31 @@ struct ToolDocumentPicker: UIViewControllerRepresentable {
     class Coordinator: NSObject, UIDocumentPickerDelegate {
         let onPick: ([URL]) -> Void
         init(onPick: @escaping ([URL]) -> Void) { self.onPick = onPick }
-        func documentPicker(_ c: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) { onPick(urls) }
-        func documentPickerWasCancelled(_ c: UIDocumentPickerViewController) { onPick([]) }
+        func documentPicker(_ c: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            DispatchQueue.main.async { self.onPick(urls) }
+        }
+        func documentPickerWasCancelled(_ c: UIDocumentPickerViewController) {
+            DispatchQueue.main.async { self.onPick([]) }
+        }
     }
 }
 
 extension UTType {
-    static var udfType: UTType { UTType(filenameExtension: "udf") ?? .data }
+    /// Info.plist'te tanımlı resmi UDF tipi.
+    static let udfDocument = UTType(importedAs: "com.velikececi.udf")
+
+    static var udfType: UTType {
+        UTType(filenameExtension: "udf") ?? udfDocument
+    }
+
+    /// UDF dosyaları sistemde zip, data veya yanlış etiketle (ör. pdf) görünebildiği için geniş liste.
+    static var udfPickerTypes: [UTType] {
+        let candidates: [UTType] = [udfDocument, udfType, .zip, .data, .item]
+        var seen = Set<String>()
+        return candidates.filter { seen.insert($0.identifier).inserted }
+    }
+
+    static func isUDFFile(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() == "udf"
+    }
 }

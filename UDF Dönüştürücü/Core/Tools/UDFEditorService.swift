@@ -26,7 +26,8 @@ enum UDFEditorError: LocalizedError {
 final class UDFEditorService {
 
     static func load(from url: URL) throws -> UDFEditableDocument {
-        let document = try UDFParser.parse(fileURL: url)
+        let readableURL = try prepareReadableCopy(from: url)
+        let document = try UDFParser.parse(fileURL: readableURL)
         let model: UDFEditDocument
 
         if document.content.contentType == .uyap {
@@ -42,11 +43,11 @@ final class UDFEditorService {
             throw UDFEditorError.emptyContent
         }
 
-        let hasSignature = (try? SignatureInspector.inspect(udfURL: url))?.hasSignature ?? false
-        let baseName = url.deletingPathExtension().lastPathComponent
+        let hasSignature = (try? SignatureInspector.inspect(udfURL: readableURL))?.hasSignature ?? false
+        let baseName = readableURL.deletingPathExtension().lastPathComponent
 
         return UDFEditableDocument(
-            sourceURL: url,
+            sourceURL: readableURL,
             baseName: baseName,
             model: model,
             hasSignature: hasSignature
@@ -72,6 +73,43 @@ final class UDFEditorService {
             + (built.headersXML ?? "")
             + built.elementsXML
             + (built.footersXML ?? "")
+    }
+
+    /// Dosya seçiciden gelen URL'yi güvenli ve okunabilir bir kopyaya alır.
+    static func prepareReadableCopy(from url: URL) throws -> URL {
+        let needsAccess = url.startAccessingSecurityScopedResource()
+        defer { if needsAccess { url.stopAccessingSecurityScopedResource() } }
+
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            throw UDFParserError.fileNotFound
+        }
+
+        var fileName = url.lastPathComponent
+        if fileName.isEmpty { fileName = "belge.udf" }
+        if !fileName.lowercased().hasSuffix(".udf") {
+            fileName += ".udf"
+        }
+
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent("udf-editor", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent(fileName)
+
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+
+        if url.path == destination.path {
+            return url
+        }
+
+        try FileManager.default.copyItem(at: url, to: destination)
+        return destination
     }
 }
 

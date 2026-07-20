@@ -84,7 +84,7 @@ struct SignatureInfoView: View {
         }
         .navigationTitle("E-İmza Bilgisi")
         .sheet(isPresented: $showPicker) {
-            ToolDocumentPicker(types: [.udfType]) { urls in
+            ToolDocumentPicker(types: UTType.udfPickerTypes) { urls in
                 showPicker = false
                 guard let first = urls.first else { return }
                 selectedFile = first

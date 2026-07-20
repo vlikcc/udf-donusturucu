@@ -33,9 +33,9 @@ struct UDFDocumentPicker: UIViewControllerRepresentable {
     var onPick: ([URL]) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let udfType = UTType(filenameExtension: "udf") ?? .data
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [udfType], asCopy: true)
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: UTType.udfPickerTypes, asCopy: true)
         picker.allowsMultipleSelection = allowsMultipleSelection
+        picker.shouldShowFileExtensions = true
         picker.delegate = context.coordinator
         return picker
     }

@@ -87,7 +87,7 @@ struct MergeView: View {
         .navigationTitle("Belge Birleştirme")
         .toolbar { EditButton() }
         .sheet(isPresented: $showPicker) {
-            ToolDocumentPicker(types: [.pdf, .udfType], allowsMultipleSelection: true) { urls in
+            ToolDocumentPicker(types: [.pdf] + UTType.udfPickerTypes, allowsMultipleSelection: true) { urls in
                 for url in urls where !files.contains(url) {
                     files.append(url)
                 }
