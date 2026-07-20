@@ -103,17 +103,20 @@ final class AdsManager: NSObject {
     }
 
     /// Ödüllü geçiş reklamını gösterir. Kullanıcı ödülü kazanırsa `LimitService.addBonusConversions(1)` çağrılır
-    /// ve `onReward` çalıştırılır. Reklam hazır değilse `onUnavailable` çalıştırılır.
+    /// ve `onReward` çalıştırılır. Reklam hazır değilse veya günlük bonus tavanı dolduysa `onUnavailable` çalıştırılır.
     func showRewarded(from rootVC: UIViewController,
                       onReward: @escaping () -> Void = {},
                       onUnavailable: @escaping () -> Void = {}) {
-        guard shouldShowAds, let ad = loadedRewardedInterstitial else {
+        guard shouldShowAds,
+              LimitService.shared.canEarnBonusConversion,
+              let ad = loadedRewardedInterstitial else {
             onUnavailable()
             return
         }
         rewardHandler = onReward
         ad.present(from: rootVC) { [weak self] in
             LimitService.shared.addBonusConversions(1)
+            AnalyticsService.logRewardedAdWatched()
             self?.rewardHandler?()
             self?.rewardHandler = nil
         }

@@ -12,9 +12,35 @@ struct HistoryView: View {
     @State private var exportFileName = ""
     @State private var exportUTType: UTType = .pdf
     @State private var confirmDeleteRecord: ConversionRecord?
+    @State private var showPaywall = false
 
     var body: some View {
         List {
+            if !limitService.isPremium {
+                Section {
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "crown.fill")
+                                .foregroundStyle(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Pro ile geçmişiniz 30 gün saklanır")
+                                    .font(.subheadline).bold()
+                                    .foregroundStyle(.primary)
+                                Text("Ücretsiz sürümde geçmiş 7 gün sonra silinir.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+            }
+
             if storage.recentRecords.isEmpty {
                 ContentUnavailableView(
                     "Henüz dönüşüm yok",
@@ -69,6 +95,9 @@ struct HistoryView: View {
         }
         .sheet(item: $shareURL) { url in
             ActivityViewController(activityItems: [url])
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(source: "history")
         }
         .navigationDestination(item: $previewURL) { url in
             DocumentPreviewView(url: url)

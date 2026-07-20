@@ -4,12 +4,14 @@ import UniformTypeIdentifiers
 struct ResultView: View {
     let results: [ConversionResult]
 
+    @ObservedObject private var limitService = LimitService.shared
     @State private var shareURL: URL?
     @State private var previewURL: URL?
     @State private var showExporter = false
     @State private var exportData: Data?
     @State private var exportFileName = ""
     @State private var exportUTType: UTType = .pdf
+    @State private var showPaywall = false
 
     var successCount: Int { results.filter(\.success).count }
     var failCount: Int { results.filter { !$0.success }.count }
@@ -32,10 +34,20 @@ struct ResultView: View {
         .navigationTitle("Sonuçlar")
         .navigationBarBackButtonHidden(false)
         .onAppear {
-            // Başarılı bir dönüştürme sonrası interstitial reklam göster (her N'de bir).
-            if successCount > 0, let vc = UIApplication.topViewController() {
+            if successCount > 0 {
+                AnalyticsService.logConversionCompleted(count: successCount, direction: "result")
+            }
+            // Son ücretsiz hak da kullanıldıysa interstitial yerine paywall göster
+            // (aynı anda iki tam ekran sunum çakışmasın).
+            if successCount > 0, !limitService.isPremium, limitService.remainingConversions == 0 {
+                showPaywall = true
+            } else if successCount > 0, let vc = UIApplication.topViewController() {
+                // Başarılı bir dönüştürme sonrası interstitial reklam göster (her N'de bir).
                 AdsManager.shared.showInterstitialIfReady(from: vc)
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(source: "result_limit")
         }
         .sheet(item: $shareURL) { url in
             ActivityViewController(activityItems: [url])

@@ -29,12 +29,13 @@ enum AppTheme {
 // MARK: - Document Pickers
 
 struct UDFDocumentPicker: UIViewControllerRepresentable {
+    var allowsMultipleSelection = true
     var onPick: ([URL]) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let udfType = UTType(filenameExtension: "udf") ?? .data
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [udfType], asCopy: true)
-        picker.allowsMultipleSelection = true
+        picker.allowsMultipleSelection = allowsMultipleSelection
         picker.delegate = context.coordinator
         return picker
     }
@@ -48,12 +49,13 @@ struct UDFDocumentPicker: UIViewControllerRepresentable {
 }
 
 struct PDFDOCXDocumentPicker: UIViewControllerRepresentable {
+    var allowsMultipleSelection = true
     var onPick: ([URL]) -> Void
     func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let types: [UTType] = [.pdf, UTType(filenameExtension: "docx") ?? .data]
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
-        picker.allowsMultipleSelection = true
+        picker.allowsMultipleSelection = allowsMultipleSelection
         picker.delegate = context.coordinator
         return picker
     }
@@ -80,7 +82,10 @@ struct ContentView: View {
     @State private var formatSelection: [URL: OutputFormat] = [:]
     @State private var navigateToConversion = false
     @State private var showPaywall = false
+    @State private var paywallSource = "limit_card"
     @State private var showLimitAlert = false
+    @State private var showBatchProAlert = false
+    @ObservedObject private var fileRouter = IncomingFileRouter.shared
     @State private var shareURL: URL?
     @State private var showExporter = false
     @State private var exportData: Data?
@@ -125,28 +130,37 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showDocumentPicker) {
-            UDFDocumentPicker { urls in
+            UDFDocumentPicker(allowsMultipleSelection: limitService.isPremium) { urls in
                 addFiles(urls)
                 showDocumentPicker = false
             }
         }
         .sheet(isPresented: $showPDFDOCXPicker) {
-            PDFDOCXDocumentPicker { urls in
+            PDFDOCXDocumentPicker(allowsMultipleSelection: limitService.isPremium) { urls in
                 addFiles(urls)
                 showPDFDOCXPicker = false
             }
         }
-        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showPaywall) { PaywallView(source: paywallSource) }
         .alert("Günlük Limit", isPresented: $showLimitAlert) {
-            Button("Reklam İzle (+1 Çeviri)") {
-                if let vc = UIApplication.topViewController() {
-                    AdsManager.shared.showRewarded(from: vc)
+            if limitService.canEarnBonusConversion {
+                Button("Reklam İzle (+1 Çeviri)") {
+                    if let vc = UIApplication.topViewController() {
+                        AdsManager.shared.showRewarded(from: vc)
+                    }
                 }
             }
-            Button("Premium'a Yükselt") { showPaywall = true }
+            Button("Premium'a Yükselt") {
+                paywallSource = "limit_alert"
+                showPaywall = true
+            }
             Button("Tamam", role: .cancel) {}
         } message: {
-            Text("Günlük ücretsiz dönüştürme limitinize ulaştınız. Reklam izleyerek +1 çeviri kazanabilir veya Premium'a yükselerek sınırsız dönüştürme yapabilirsiniz.")
+            if limitService.canEarnBonusConversion {
+                Text("Günlük ücretsiz dönüştürme limitinize ulaştınız. Reklam izleyerek +1 çeviri kazanabilir (günde en fazla 2) veya Premium'a yükselerek sınırsız dönüştürme yapabilirsiniz.")
+            } else {
+                Text("Bugünkü ücretsiz dönüştürme ve reklam haklarınız doldu. Premium'a yükselerek sınırsız dönüştürme yapabilirsiniz.")
+            }
         }
         .navigationDestination(isPresented: $navigateToConversion) {
             ConversionView(files: selectedFiles, formats: formatSelection)
@@ -154,6 +168,28 @@ struct ContentView: View {
         .onChange(of: conversionDirection) { _, _ in
             selectedFiles.removeAll()
             formatSelection.removeAll()
+        }
+        .onChange(of: fileRouter.incomingFile) { _, url in
+            guard let url else { return }
+            conversionDirection = .udfToOther
+            addFiles([url])
+            fileRouter.incomingFile = nil
+        }
+        .onAppear {
+            if let url = fileRouter.incomingFile {
+                conversionDirection = .udfToOther
+                addFiles([url])
+                fileRouter.incomingFile = nil
+            }
+        }
+        .alert("Toplu Dönüştürme", isPresented: $showBatchProAlert) {
+            Button("Pro'ya Yükselt") {
+                paywallSource = "batch"
+                showPaywall = true
+            }
+            Button("Tamam", role: .cancel) {}
+        } message: {
+            Text("Aynı anda birden fazla dosya dönüştürme Pro üyelere özeldir. Ücretsiz sürümde tek dosya seçebilirsiniz.")
         }
         .sheet(item: $shareURL) { url in
             ActivityViewController(activityItems: [url])
@@ -240,6 +276,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
 
                         Button {
+                            paywallSource = "limit_card"
                             showPaywall = true
                         } label: {
                             Text("Yükselt")
@@ -373,6 +410,7 @@ struct ContentView: View {
             if limitService.canConvert && limitService.useConversion(count: count) {
                 navigateToConversion = true
             } else {
+                AnalyticsService.logLimitHit()
                 showLimitAlert = true
             }
         } label: {
@@ -530,7 +568,18 @@ struct ContentView: View {
     // MARK: - Helpers
 
     private func addFiles(_ urls: [URL]) {
-        for url in urls where !selectedFiles.contains(url) {
+        var incoming = urls.filter { !selectedFiles.contains($0) }
+
+        // Toplu dönüştürme Pro özelliğidir: ücretsiz kullanıcı aynı anda tek dosya seçebilir.
+        if !limitService.isPremium {
+            let capacity = max(0, 1 - selectedFiles.count)
+            if incoming.count > capacity {
+                incoming = Array(incoming.prefix(capacity))
+                showBatchProAlert = true
+            }
+        }
+
+        for url in incoming {
             selectedFiles.append(url)
             formatSelection[url] = conversionDirection == .udfToOther ? .pdf : .udf
         }

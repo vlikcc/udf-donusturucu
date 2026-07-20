@@ -52,12 +52,32 @@ final class UDFCreator {
         return try buildUDF(fileName: fileName, paragraphs: paragraphs)
     }
 
+    /// Hazır paragraf listesinden UDF üretir (şablon motoru ve OCR çıktısı için).
+    static func create(fileName: String, paragraphs: [InputParagraph]) throws -> URL {
+        try buildUDF(fileName: fileName, paragraphs: paragraphs)
+    }
+
+    /// Zengin düzenleme modelinden UDF üretir (tablo, alan, renk destekli).
+    static func create(fileName: String, document: UDFEditDocument) throws -> URL {
+        let built = UDFStructureWriter.build(from: document)
+        let contentXML = buildContentXML(
+            cdataText: built.cdataText,
+            elementsXML: built.elementsXML,
+            headersXML: built.headersXML,
+            footersXML: built.footersXML
+        )
+        return try writeUDF(fileName: fileName, contentXML: contentXML)
+    }
+
     // MARK: - Build UDF ZIP
 
     private static func buildUDF(fileName: String, paragraphs: [InputParagraph]) throws -> URL {
         let cdataText = paragraphs.map(\.text).joined(separator: "\n")
-
         let contentXML = buildContentXML(cdataText: cdataText, paragraphs: paragraphs)
+        return try writeUDF(fileName: fileName, contentXML: contentXML)
+    }
+
+    private static func writeUDF(fileName: String, contentXML: String) throws -> URL {
         let propertiesXML = buildPropertiesXML()
 
         guard let contentData = contentXML.data(using: .utf8),
@@ -80,6 +100,36 @@ final class UDFCreator {
     }
 
     // MARK: - Content XML
+
+    private static func buildContentXML(
+        cdataText: String,
+        elementsXML: String,
+        headersXML: String? = nil,
+        footersXML: String? = nil
+    ) -> String {
+        let stylesXML = "<styles>"
+            + "<style name=\"default\" italic=\"false\" description=\"Geçerli\" size=\"12\" RightIndent=\"15.0\" bold=\"false\" family=\"Dialog\" foreground=\"-16777216\" FONT_ATTRIBUTE_KEY=\"javax.swing.plaf.FontUIResource[family=Dialog,name=Dialog,style=plain,size=12]\" />"
+            + "<style name=\"hvl-default\" SpaceAbove=\"0.0\" description=\"Gövde\" SpaceBelow=\"0.0\" size=\"12\" LeftIndent=\"0.0\" RightIndent=\"0.0\" LineSpacing=\"0.0\" Alignment=\"0\" family=\"Times New Roman\" />"
+            + "</styles>"
+
+        var sectionsXML = "<elements >\(elementsXML)</elements>\n"
+        if let headersXML {
+            sectionsXML += "<headers>\(headersXML)</headers>\n"
+        }
+        if let footersXML {
+            sectionsXML += "<footers>\(footersXML)</footers>\n"
+        }
+
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?> \n\n"
+            + "<template format_id=\"1.8\" >\n"
+            + "<content><![CDATA[\(cdataText)]]></content>"
+            + "<properties>"
+            + "<pageFormat mediaSizeName=\"1\" leftMargin=\"56.69291305541992\" rightMargin=\"56.69291305541992\" topMargin=\"28.34645652770996\" bottomMargin=\"28.34645652770996\" paperOrientation=\"1\" headerFOffset=\"15.0\" footerFOffset=\"60.00944846916199\" />"
+            + "</properties>\n"
+            + sectionsXML
+            + stylesXML + "\n"
+            + "</template>\n"
+    }
 
     private static func buildContentXML(cdataText: String, paragraphs: [InputParagraph]) -> String {
         var elementsXML = "\n"
@@ -123,21 +173,7 @@ final class UDFCreator {
             elementsXML += "</paragraph>\n"
         }
 
-        // Styles section (required by UYAP document editor)
-        let stylesXML = "<styles>"
-            + "<style name=\"default\" italic=\"false\" description=\"Geçerli\" size=\"12\" RightIndent=\"15.0\" bold=\"false\" family=\"Dialog\" foreground=\"-16777216\" FONT_ATTRIBUTE_KEY=\"javax.swing.plaf.FontUIResource[family=Dialog,name=Dialog,style=plain,size=12]\" />"
-            + "<style name=\"hvl-default\" SpaceAbove=\"0.0\" description=\"Gövde\" SpaceBelow=\"0.0\" size=\"12\" LeftIndent=\"0.0\" RightIndent=\"0.0\" LineSpacing=\"0.0\" Alignment=\"0\" family=\"Times New Roman\" />"
-            + "</styles>"
-
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?> \n\n"
-            + "<template format_id=\"1.8\" >\n"
-            + "<content><![CDATA[\(cdataText)]]></content>"
-            + "<properties>"
-            + "<pageFormat mediaSizeName=\"1\" leftMargin=\"56.69291305541992\" rightMargin=\"56.69291305541992\" topMargin=\"28.34645652770996\" bottomMargin=\"28.34645652770996\" paperOrientation=\"1\" headerFOffset=\"15.0\" footerFOffset=\"60.00944846916199\" />"
-            + "</properties>\n"
-            + "<elements >\(elementsXML)</elements>\n"
-            + stylesXML + "\n"
-            + "</template>\n"
+        return buildContentXML(cdataText: cdataText, elementsXML: elementsXML)
     }
 
     private static func buildPropertiesXML() -> String {

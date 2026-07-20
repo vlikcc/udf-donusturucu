@@ -156,9 +156,13 @@ final class UDFParser {
         var runs: [UYAPTextRun] = []
 
         // Match <content .../>, <field .../>, <space .../> — self-closing tags with startOffset and length
-        let tagPatterns = ["<content ", "<field ", "<space "]
+        let tagPatterns: [(String, Bool, Bool)] = [
+            ("<content ", false, false),
+            ("<field ", true, false),
+            ("<space ", false, true)
+        ]
 
-        for tagPattern in tagPatterns {
+        for (tagPattern, isField, isSpace) in tagPatterns {
             var search = paragraphXML.startIndex
             while let tagStart = paragraphXML.range(of: tagPattern, range: search..<paragraphXML.endIndex) {
                 // Find the end of this tag (either /> or >)
@@ -180,6 +184,13 @@ final class UDFParser {
                 let italic = tagContent.contains("italic=\"true\"")
                 let fontSize = extractFloatAttr(tagContent, name: "size")
                 let fontFamily = extractStringAttr(tagContent, name: "family")
+                let foreground = parseColorAttr(tagContent, name: "foreground")
+                    ?? parseColorAttr(tagContent, name: "Foreground")
+                let background = parseColorAttr(tagContent, name: "background")
+                    ?? parseColorAttr(tagContent, name: "Background")
+                let fieldName = extractStringAttr(tagContent, name: "fieldName")
+                    ?? extractStringAttr(tagContent, name: "name")
+                    ?? extractStringAttr(tagContent, name: "FieldName")
 
                 runs.append(UYAPTextRun(
                     startOffset: startOffset,
@@ -188,7 +199,12 @@ final class UDFParser {
                     underline: underline,
                     italic: italic,
                     fontSize: fontSize,
-                    fontFamily: fontFamily
+                    fontFamily: fontFamily,
+                    foregroundARGB: foreground,
+                    backgroundARGB: background,
+                    isField: isField,
+                    fieldName: fieldName,
+                    isSpace: isSpace
                 ))
 
                 search = tagEnd.upperBound
@@ -322,6 +338,18 @@ final class UDFParser {
                 if run.underline {
                     paraAttrStr.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
                 }
+
+                if let fg = run.foregroundARGB {
+                    paraAttrStr.addAttribute(.foregroundColor, value: UDFColorCodec.uiColor(fromJavaARGB: fg), range: range)
+                }
+                if let bg = run.backgroundARGB {
+                    paraAttrStr.addAttribute(.backgroundColor, value: UDFColorCodec.uiColor(fromJavaARGB: bg), range: range)
+                } else if run.isField {
+                    paraAttrStr.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.35), range: range)
+                }
+                if run.isField, let name = run.fieldName {
+                    paraAttrStr.addAttribute(.udfFieldName, value: name, range: range)
+                }
             }
 
             result.append(paraAttrStr)
@@ -379,6 +407,10 @@ final class UDFParser {
         guard let end = xml.range(of: "\"", range: start..<xml.endIndex) else { return nil }
         let val = String(xml[start..<end.lowerBound])
         return val.isEmpty ? nil : val
+    }
+
+    private static func parseColorAttr(_ xml: String, name: String) -> Int? {
+        UDFColorCodec.parse(extractStringAttr(xml, name: name))
     }
 
     // MARK: - CDATA Extraction

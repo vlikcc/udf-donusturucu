@@ -8,7 +8,8 @@ final class LimitService: ObservableObject {
     private let dailyLimitKey = "dailyConversionCount"
     private let lastResetDateKey = "lastResetDate"
     private let premiumKey = "isPremiumUser"
-    private let maxFreeConversions = 3
+    private let maxFreeConversions = 1
+    private let maxBonusConversions = 2
     private let bonusConversionsKey = "bonusConversions"
 
     @Published var remainingConversions: Int = 3
@@ -52,10 +53,17 @@ final class LimitService: ObservableObject {
         return true
     }
 
+    /// Reklamla kazanılan bonus çeviri hakkı ekler. Günlük bonus, `maxBonusConversions` ile sınırlıdır
+    /// (böylece toplam günlük hak `maxFreeConversions + maxBonusConversions`'ı aşamaz).
     func addBonusConversions(_ count: Int) {
         let current = UserDefaults.standard.integer(forKey: bonusConversionsKey)
-        UserDefaults.standard.set(current + count, forKey: bonusConversionsKey)
+        UserDefaults.standard.set(min(current + count, maxBonusConversions), forKey: bonusConversionsKey)
         updateRemaining()
+    }
+
+    /// Kullanıcının bugün için reklamla daha fazla bonus hakkı kazanıp kazanamayacağı.
+    var canEarnBonusConversion: Bool {
+        !isPremium && UserDefaults.standard.integer(forKey: bonusConversionsKey) < maxBonusConversions
     }
 
     func activatePremium() {

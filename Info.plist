@@ -2,6 +2,41 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>UYAP Belgesi</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.velikececi.udf</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.velikececi.udf</string>
+			<key>UTTypeDescription</key>
+			<string>UYAP Belgesi (UDF)</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>udf</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Bu veri, size daha ilgili reklamlar göstermek için diğer şirketlere ait uygulama ve web sitelerinde sizi takip etmek amacıyla kullanılacaktır.</string>
 	<key>GADApplicationIdentifier</key>

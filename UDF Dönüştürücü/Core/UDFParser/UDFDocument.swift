@@ -62,6 +62,11 @@ struct UYAPTextRun {
     let italic: Bool
     let fontSize: CGFloat?
     let fontFamily: String?
+    let foregroundARGB: Int?
+    let backgroundARGB: Int?
+    let isField: Bool
+    let fieldName: String?
+    let isSpace: Bool
 }
 
 // MARK: - Section / Table / Metadata
