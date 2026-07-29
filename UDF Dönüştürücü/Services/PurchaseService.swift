@@ -9,14 +9,19 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.evra
 final class PurchaseService: ObservableObject {
     static let shared = PurchaseService()
 
-    static let unlimitedProductID = "com.evrakdonus.unlimited"
-    static let monthlyProductID = "com.evrakdonus.pro.monthly"
+    static let unlimitedProductID = "com.evrakdonus.pro.unlimited"
+    static let monthlyProductID = "com.evrakdonus.pro.month"
     static let yearlyProductID = "com.evrakdonus.pro.yearly"
-    /// Eski haftalık abonelik — mevcut abonelere erişim için entitlement kontrolünde tutulur.
-    static let legacyWeeklyProductID = "com.evrakdonus.pro.weekly"
+
+    /// Yayından kaldırılan ürünler. Paywall'da gösterilmez ancak entitlement kontrolünde
+    /// tutulur; aksi hâlde bu ürünleri satın almış kullanıcılar premium erişimini kaybeder.
+    static let legacyProductIDs: Set<String> = [
+        "com.evrakdonus.unlimited",
+        "com.evrakdonus.pro.weekly"
+    ]
 
     static let paywallProductIDs: Set<String> = [monthlyProductID, yearlyProductID, unlimitedProductID]
-    static let allProductIDs: Set<String> = paywallProductIDs.union([legacyWeeklyProductID])
+    static let allProductIDs: Set<String> = paywallProductIDs.union(legacyProductIDs)
 
     @Published var products: [Product] = []
     @Published var purchaseState: PurchaseState = .idle

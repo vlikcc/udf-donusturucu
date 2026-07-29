@@ -178,7 +178,7 @@ struct TermsView: View {
                     Text("• Ücretsiz kullanıcılar günlük 1 dönüştürme hakkına sahiptir.\n• Reklam izleyerek günde en fazla 2 ek dönüştürme hakkı kazanılabilir.\n• Limit her gün gece yarısı sıfırlanır.\n• Dönüştürme geçmişi 7 gün boyunca saklanır.")
 
                     Text("Premium Üyelik").font(.headline)
-                    Text("• Premium; aylık abonelik (₺49,99/ay), yıllık abonelik (₺499,99/yıl) veya tek seferlik \"Ömür Boyu\" satın alma (₺999,99) ile edinilebilir.\n• Abonelikler, dönem sonunda otomatik olarak yenilenir. Yenilemeyi App Store hesap ayarlarınızdan istediğiniz zaman kapatabilirsiniz.\n• Premium; sınırsız dönüştürme sağlar, tüm reklamları kaldırır ve dönüştürme geçmişini 30 güne uzatır.")
+                    Text("• Premium; aylık abonelik, yıllık abonelik veya tek seferlik \"Ömür Boyu\" satın alma ile edinilebilir. Güncel fiyatlar uygulama içindeki Pro ekranında ve App Store'da gösterilir.\n• Abonelikler, dönem sonunda otomatik olarak yenilenir. Yenilemeyi App Store hesap ayarlarınızdan istediğiniz zaman kapatabilirsiniz.\n• Premium; sınırsız dönüştürme sağlar, tüm reklamları kaldırır ve dönüştürme geçmişini 30 güne uzatır.")
                     Text("Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir ve Apple'ın standart iade politikalarına tabidir. İade talepleri için doğrudan Apple ile iletişime geçmeniz gerekmektedir.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

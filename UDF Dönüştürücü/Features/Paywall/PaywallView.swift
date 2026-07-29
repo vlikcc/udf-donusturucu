@@ -408,7 +408,7 @@ struct PaywallView: View {
         case PurchaseService.yearlyProductID:
             return "12 aylık pakete göre tasarruf — yıllık yenilenir"
         case PurchaseService.unlimitedProductID:
-            return "Tek ödeme ₺999,99 — abonelik yok, kalıcı erişim"
+            return "Tek ödeme — abonelik yok, kalıcı erişim"
         default:
             return product.description
         }

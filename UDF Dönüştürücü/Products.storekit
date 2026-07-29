@@ -5,7 +5,7 @@
   ],
   "products" : [
     {
-      "displayPrice" : "999.99",
+      "displayPrice" : "1499.99",
       "familyShareable" : false,
       "internalID" : "6750000001",
       "localizations" : [
@@ -15,7 +15,7 @@
           "locale" : "tr"
         }
       ],
-      "productID" : "com.evrakdonus.unlimited",
+      "productID" : "com.evrakdonus.pro.unlimited",
       "referenceName" : "Ömür Boyu Pro",
       "type" : "NonConsumable"
     }
@@ -55,7 +55,7 @@
               "locale" : "tr"
             }
           ],
-          "productID" : "com.evrakdonus.pro.monthly",
+          "productID" : "com.evrakdonus.pro.month",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Pro Aylık",
           "subscriptionGroupID" : "6750000100",
