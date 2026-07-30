@@ -2,6 +2,12 @@
 
 App Store Connect'te uygulama sayfasını oluştururken kullanılacak tüm bilgiler aşağıdadır.
 
+> **⚠️ Guideline 3.1.2(c) reddi (30 Temmuz 2026, Submission ID `f0dfc1fb-2691-4979-bea4-494d5f9cca92`):**
+> Sürüm 1.2.2 (2), App Store metadata'sında **çalışan bir Kullanım Koşulları (EULA) bağlantısı bulunmadığı** için
+> reddedildi. Bu dosyadaki "Uygulama Açıklaması", "License Agreement (Custom EULA)" ve "App Review Information — Notes"
+> bölümleri bu reddi kapatmak için hazırlanmıştır. Yeniden gönderimden önce
+> [Yeniden Gönderim Kontrol Listesi](#yeniden-gönderim-kontrol-listesi) bölümündeki adımların tamamı uygulanmalıdır.
+
 ---
 
 ## Uygulama Adı
@@ -62,10 +68,29 @@ Tüm dönüştürme işlemleri tamamen cihazınız üzerinde gerçekleşir. Belg
 • Tamamen Türkçe arayüz
 
 ÜCRETSİZ KULLANIM
-Günlük 5 belgeye kadar ücretsiz dönüştürme yapabilirsiniz. Premium sürüme yükselerek sınırsız dönüştürme hakkı, reklamsız deneyim ve 30 günlük genişletilmiş geçmiş kaydına erişebilirsiniz.
+Günde 1 belgeyi ücretsiz dönüştürebilirsiniz. Reklam izleyerek günde en fazla 2 ek dönüştürme hakkı kazanabilirsiniz. Pro üyeliğe geçerek sınırsız dönüştürme hakkı, reklamsız deneyim, toplu dönüştürme, Pro Araçlar ve 30 günlük genişletilmiş geçmiş kaydına erişebilirsiniz.
+
+ABONELİK BİLGİLERİ
+Pro üyelik için üç seçenek sunulur:
+• Pro Aylık Abonelik — 1 ay süreli, otomatik yenilenen abonelik
+• Pro Yıllık Abonelik — 1 yıl süreli, otomatik yenilenen abonelik
+• Ömür Boyu Pro — tek seferlik satın alma, abonelik değildir
+
+Güncel fiyatlar bulunduğunuz ülkenin App Store fiyatlandırmasına göre değişir ve uygulama içindeki Pro ekranında satın alma öncesinde gösterilir.
+
+Ödeme, satın alma onayında Apple Kimliği hesabınıza yansıtılır. Abonelik, mevcut dönemin bitiminden en az 24 saat önce kapatılmadığı sürece otomatik olarak yenilenir ve yenileme ücreti dönem bitiminden önceki 24 saat içinde tahsil edilir. Aboneliğinizi App Store > Apple Kimliği > Abonelikler bölümünden yönetebilir veya iptal edebilirsiniz.
+
+Gizlilik Politikası: https://velikececi.com/udfdonusturucu/gizlilik.html
+Kullanım Koşulları (EULA): https://velikececi.com/udfdonusturucu/kosullar.html
 
 Sorularınız veya önerileriniz için: info@velikececi.com
 ```
+
+> **Bu blok reddin doğrudan çözümüdür.** Guideline 3.1.2(c) açıklamada çalışan bir Kullanım Koşulları (EULA) bağlantısı
+> istiyor. Fiyatlar açıklamaya **bilerek sabit rakam olarak yazılmadı** — fiyat storefront'a göre değişir ve App Store
+> Connect fiyatlandırması değiştiğinde açıklama yanıltıcı hâle gelir. Apple'ın "price of subscription" şartı
+> *uygulamanın içinde* karşılanır: paywall fiyatları StoreKit'ten canlı alır ve yıllık planda aylık birim fiyatı da
+> gösterir.
 
 ---
 
@@ -95,46 +120,146 @@ UDF,UYAP,dönüştürücü,PDF,Word,belge,evrak,dosya,çevir,avukat
 
 ---
 
-## Destek URL'si
+## Yayındaki URL'ler
 
-Şu anda uygulamada harici bir web sitesi/destek sayfası URL'si bulunmuyor. İki seçenek:
+Sayfaların kaynağı repodaki `web/` klasörüdür. **Bu dosyalarda yapılan her değişiklik yayına alınmalıdır** — App Review,
+metadata'daki bağlantıları açıp içeriğin uygulamayla tutarlı olup olmadığına bakar.
 
-### Seçenek A: Basit bir destek sayfası oluşturun
-Aşağıdaki platformlardan birinde ücretsiz tek sayfa oluşturabilirsiniz:
-- **GitHub Pages** (ücretsiz)
-- **Notion** public sayfa (ücretsiz)
-- **Carrd.co** (ücretsiz/uygun fiyatlı)
+| App Store Connect alanı | URL | Kaynak dosya |
+|---|---|---|
+| **Support URL** | `https://velikececi.com/udfdonusturucu/destek.html` | `web/destek.html` |
+| **Privacy Policy URL** | `https://velikececi.com/udfdonusturucu/gizlilik.html` | `web/gizlilik.html` |
+| **Marketing URL** (isteğe bağlı) | `https://velikececi.com/udfdonusturucu/` | `web/index.html` |
+| Açıklamadaki EULA bağlantısı | `https://velikececi.com/udfdonusturucu/kosullar.html` | `web/kosullar.html` |
 
-Örnek URL formatı: `https://evrakdonus.com/destek` veya `https://evrakdonus.github.io/destek`
+Aynı adresler uygulamanın içinde de tek bir yerden okunur: `UDF Dönüştürücü/Core/AppLinks.swift`. Adres değişirse
+**önce orayı** güncelleyin.
 
-### Seçenek B: E-posta adresi kullanın
-App Store Connect, destek URL'si olarak `mailto:` kabul etmez. Bir web sayfası zorunludur. En basit çözüm, tek sayfalık bir site oluşturmaktır.
+Gönderim öncesi dört adresin de 200 döndüğü doğrulanmalı:
 
-**Minimum içerik:**
-- Uygulama adı ve kısa açıklama
-- İletişim e-postası: destek@evrakdonus.com
-- SSS (Sıkça Sorulan Sorular)
+```bash
+for u in destek gizlilik kosullar index; do
+  curl -sI "https://velikececi.com/udfdonusturucu/$u.html" | head -1
+done
+```
 
 ---
 
-## Gizlilik Politikası URL'si
+## License Agreement (Custom EULA)
 
-Uygulamadaki gizlilik politikası şu anda uygulama içi metin olarak (`PrivacyPolicyView`) sunuluyor. App Store Connect için **harici bir web URL'si zorunludur**.
+**App Store Connect > App Information (Uygulama Bilgileri) > License Agreement > Edit > Custom License Agreement.**
 
-### Yapılması gereken:
-Gizlilik politikası metnini bir web sayfasına yükleyin. Uygulama içindeki mevcut metin:
+Bu alan, açıklamadaki `kosullar.html` bağlantısıyla **birlikte** doldurulur. `web/kosullar.html` ve uygulama içindeki
+`TermsView` ile aynı metindir — üçü arasında fark olması yeni bir 3.1.2 reddi riski taşır. Aşağıdaki metin olduğu gibi
+yapıştırılabilir:
 
-> **Veri Toplama:** EvrakDönüş uygulaması, yüklediğiniz UDF dosyalarının içeriğini hiçbir sunucuya göndermez. Tüm dönüştürme işlemleri tamamen cihazınız üzerinde gerçekleştirilir.
->
-> **Yerel Depolama:** Dönüştürme geçmişi (yalnızca dosya adı ve tarih bilgisi) cihazınızda yerel olarak saklanır. Bu bilgiler üçüncü taraflarla paylaşılmaz.
->
-> **Reklam:** Ücretsiz sürümde Google AdMob reklamları gösterilir. AdMob, reklam kişiselleştirme amacıyla Apple'ın IDFA'sını kullanabilir.
->
-> **KVKK Uyumu:** EvrakDönüş, 6698 sayılı Kişisel Verilerin Korunması Kanunu'na uygun olarak çalışır.
->
-> **İletişim:** destek@evrakdonus.com
+```
+EVRAK DÖNÜŞTÜRÜCÜ — KULLANIM KOŞULLARI VE SON KULLANICI LİSANS SÖZLEŞMESİ
+Son güncelleme: Temmuz 2026
 
-Örnek URL formatı: `https://evrakdonus.com/gizlilik`
+1. HİZMET TANIMI
+Evrak Dönüştürücü, UYAP UDF formatındaki dosyaları PDF ve Microsoft Word (.docx) formatlarına dönüştürme hizmeti sunan bir iOS uygulamasıdır. Desteklenen yönler: UDF → PDF, UDF → Word (.docx), PDF → UDF, Word (.docx) → UDF.
+
+Önemli: Bu uygulama resmi bir devlet hizmeti değildir ve UYAP ile doğrudan bağlantılı değildir. Bağımsız bir üçüncü taraf uygulamasıdır.
+
+2. LİSANS
+Uygulamayı App Store Kullanım Koşulları çerçevesinde, kişisel ve ticari olmayan amaçlarla, devredilemez şekilde kullanma hakkı verilir. Uygulamanın kaynak koduna erişim, tersine mühendislik, çoğaltma veya yeniden dağıtım yapılamaz.
+
+3. ÜCRETSİZ KULLANIM VE LİMİTLER
+• Ücretsiz kullanıcılar günlük 1 dönüştürme hakkına sahiptir.
+• Reklam izleyerek günde en fazla 2 ek dönüştürme hakkı kazanılabilir.
+• Limit her gün gece yarısı sıfırlanır.
+• Dönüştürme geçmişi 7 gün boyunca saklanır.
+
+4. PRO ÜYELİK PLANLARI
+• Pro Aylık Abonelik — 1 ay süreli, otomatik yenilenen abonelik.
+• Pro Yıllık Abonelik — 1 yıl süreli, otomatik yenilenen abonelik.
+• Ömür Boyu Pro — tek seferlik satın alma, abonelik değildir.
+
+Güncel fiyatlar bulunduğunuz ülkenin App Store fiyatlandırmasına göre değişir ve uygulama içindeki Pro ekranında satın alma öncesinde gösterilir.
+
+Pro üyelik; sınırsız dönüştürme sağlar, tüm reklamları kaldırır, toplu dönüştürme ve Pro Araçlar'ı açar ve dönüştürme geçmişini 30 güne uzatır.
+
+5. ABONELİĞİN YENİLENMESİ VE İPTALİ
+• Ödeme, satın alma onayında Apple Kimliği hesabınıza yansıtılır.
+• Abonelik, mevcut dönemin bitiminden en az 24 saat önce kapatılmadığı sürece otomatik olarak yenilenir.
+• Yenileme ücreti, dönem bitiminden önceki 24 saat içinde tahsil edilir.
+• Aboneliğinizi App Store > Apple Kimliği > Abonelikler bölümünden yönetebilir veya iptal edebilirsiniz. Mevcut dönem içinde iptal edilen abonelikler dönem sonuna kadar geçerli kalır.
+
+Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir ve Apple'ın standart iade politikalarına tabidir. İade talepleri için doğrudan Apple ile iletişime geçmeniz gerekmektedir.
+
+6. SORUMLULUK SINIRI
+Dönüştürme işlemi sırasında oluşabilecek biçimlendirme farklılıklarından dolayı sorumluluk kabul edilmez. Hukuki işlemlerde orijinal belgenin kullanılması tavsiye edilir. Uygulama "olduğu gibi" sunulmaktadır; dönüştürme sonuçlarının doğruluğu veya eksiksizliği için garanti verilmez.
+
+7. GİZLİLİK
+Tüm dönüştürme işlemleri cihazınız üzerinde gerçekleşir. Belgeleriniz hiçbir sunucuya gönderilmez. Ayrıntılar için Gizlilik Politikası: https://velikececi.com/udfdonusturucu/gizlilik.html
+
+8. DEĞİŞİKLİKLER
+Bu koşullar zaman zaman güncellenebilir. Önemli değişiklikler uygulama içinden bildirilecektir. Uygulamayı kullanmaya devam etmeniz, güncel koşulları kabul ettiğiniz anlamına gelir.
+
+9. İLETİŞİM
+E-posta: info@velikececi.com
+Web: https://velikececi.com/udfdonusturucu/kosullar.html
+```
+
+---
+
+## App Review Information — Notes
+
+**App Store Connect > (sürüm sayfası) > App Review Information > Notes.** Apple, bu bilgilerin gelecek gönderimlerde
+Notes alanında bulunmasını açıkça istedi. Aşağıdaki metin olduğu gibi yapıştırılabilir:
+
+```
+SUBSCRIPTION INFORMATION (Guideline 3.1.2)
+
+Auto-renewable subscriptions offered in this app:
+1. "Pro Aylık Abonelik" (Pro Monthly) — product ID com.evrakdonus.pro.month — length: 1 month, auto-renewing.
+2. "Pro Yıllık Abonelik" (Pro Yearly) — product ID com.evrakdonus.pro.yearly — length: 1 year, auto-renewing.
+Non-subscription item: "Ömür Boyu Pro" (Lifetime) — product ID com.evrakdonus.pro.unlimited — one-time non-consumable purchase.
+
+Prices are never hardcoded: they are read live from StoreKit (Product.displayPrice) in the storefront's own currency. The yearly plan also shows the per-month equivalent price.
+
+WHERE TO SEE THIS IN THE APP
+The paywall opens from any of these places:
+- Right after onboarding (first launch).
+- Ayarlar (Settings) tab > "Premium'a Yükselt".
+- ARAÇLAR (Tools) tab > any locked tool card.
+- Home screen, when the daily free conversion limit is reached.
+
+On the paywall screen you can see, without scrolling past the plan list:
+- Subscription title: "Pro Aylık Abonelik" / "Pro Yıllık Abonelik" / "Ömür Boyu Pro"
+- Subscription length: "1 ay · otomatik yenilenir" / "1 yıl · otomatik yenilenir"
+- Price: shown next to each plan, plus "≈ <price> / ay" per-unit price for the yearly plan
+- Full auto-renewal terms under the "Abonelik Koşulları" heading
+
+FUNCTIONAL LINKS
+At the bottom of the paywall: "Geri Yükle" (Restore) · "Koşullar" (Terms of Use) · "Gizlilik" (Privacy Policy) · "EULA".
+Also under Ayarlar > "Gizlilik ve Yasal": Gizlilik Politikası, Kullanım Koşulları, Lisans Sözleşmesi (EULA).
+Hosted versions:
+- Privacy Policy: https://velikececi.com/udfdonusturucu/gizlilik.html
+- Terms of Use (EULA): https://velikececi.com/udfdonusturucu/kosullar.html
+Both links are also included in the App Description, and the Terms of Use are entered in the Custom License Agreement field in App Store Connect.
+
+NOTE ON TEST ACCOUNT
+No login or account is required to use the app or to reach the paywall. Documents are converted entirely on-device.
+```
+
+---
+
+## Yeniden Gönderim Kontrol Listesi
+
+3.1.2(c) reddi sonrası, yeni build göndermeden önce sırasıyla:
+
+- [ ] `web/` klasöründeki güncellenmiş dört sayfa (`index`, `kosullar`, `gizlilik`, `destek`) yayına alındı
+- [ ] Dört URL de tarayıcıda açılıp 200 döndüğü doğrulandı
+- [ ] **Uygulama Açıklaması**, yukarıdaki "ABONELİK BİLGİLERİ" bloğuyla birlikte güncellendi (EULA bağlantısı dâhil)
+- [ ] **App Information > License Agreement** alanına custom EULA metni girildi
+- [ ] **Privacy Policy URL** ve **Support URL** alanları yukarıdaki tabloya göre güncellendi
+- [ ] **App Review Information > Notes** alanı dolduruldu
+- [ ] Build numarası `2` → `3` yükseltildi (`MARKETING_VERSION` 1.2.2 kalabilir)
+- [ ] Reddedilen IAP'ler (`IAP Unlimited Pro`, `Subscription Group Udf Donusturucu Pro`, `Pro Aylık Abonelik`, `Pro Yıllık Abonelik`) sürümle **birlikte** yeniden gönderilmek üzere işaretlendi
+- [ ] Paywall akışının ekran kaydı alındı ve App Store Connect'teki inceleme mesajına cevap olarak eklendi
+      (Apple bunu açıkça istedi: *"reply to this message with a screen recording to confirm"*)
 
 ---
 
@@ -180,7 +305,9 @@ App Store Connect'te sorulacak şifreleme sorusu:
 - [ ] Anahtar kelimeler girildi
 - [ ] Birincil kategori: Verimlilik (Productivity)
 - [ ] İkincil kategori: İş (Business)
-- [ ] Destek URL'si oluşturuldu ve eklendi
-- [ ] Gizlilik politikası web sayfası oluşturuldu ve URL eklendi
+- [ ] Destek URL'si eklendi (`https://velikececi.com/udfdonusturucu/destek.html`)
+- [ ] Gizlilik politikası URL'si eklendi (`https://velikececi.com/udfdonusturucu/gizlilik.html`)
+- [ ] Custom License Agreement (EULA) alanı dolduruldu
+- [ ] App Review Information > Notes dolduruldu
 - [ ] Yaş sınıflandırması anketi dolduruldu
 - [ ] İhracat uyumluluk bilgileri dolduruldu

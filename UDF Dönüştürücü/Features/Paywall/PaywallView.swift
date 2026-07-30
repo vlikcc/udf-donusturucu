@@ -1,25 +1,6 @@
 import SwiftUI
 import StoreKit
 
-// MARK: - Fiyatlandırma
-
-enum PaywallPricing {
-    /// Yıllık planda üstü çizili gösterilecek referans fiyat (12 × aylık).
-    static let yearlyReferencePrice = Decimal(string: "599.99")!
-
-    static var yearlyReferencePriceText: String {
-        formatTRY(yearlyReferencePrice)
-    }
-
-    static func formatTRY(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: "tr_TR")
-        formatter.currencyCode = "TRY"
-        return formatter.string(from: amount as NSDecimalNumber) ?? "₺\(amount)"
-    }
-}
-
 // MARK: - PaywallView
 
 struct PaywallView: View {
@@ -35,12 +16,16 @@ struct PaywallView: View {
     @State private var showTerms = false
     @State private var showPrivacy = false
 
-    private static let appleEULA = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-
     private var selectedProduct: Product? {
         purchaseService.sortedProducts.first { $0.id == selectedProductID }
             ?? purchaseService.sortedProducts.first { $0.id == PurchaseService.yearlyProductID }
             ?? purchaseService.sortedProducts.first
+    }
+
+    /// Yıllık planın "üstü çizili" referansı ve tasarruf oranı, canlı aylık fiyattan türetilir.
+    /// Aylık ürün yüklenmediyse `nil` → ne üstü çizili fiyat ne de indirim rozeti gösterilir.
+    private var monthlyProduct: Product? {
+        purchaseService.products.first { $0.id == PurchaseService.monthlyProductID }
     }
 
     var body: some View {
@@ -226,6 +211,8 @@ struct PaywallView: View {
                     HStack(spacing: 5) {
                         Text(planTitle(for: product))
                             .font(.subheadline.bold())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
 
                         if isYearly {
                             badge("EN AVANTAJLI", color: Color.orange)
@@ -241,7 +228,7 @@ struct PaywallView: View {
                     Text(planSubtitle(for: product))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .multilineTextAlignment(.leading)
                 }
 
@@ -266,8 +253,8 @@ struct PaywallView: View {
 
     private func planPriceColumn(for product: Product, isYearly: Bool) -> some View {
         VStack(alignment: .trailing, spacing: 1) {
-            if isYearly {
-                Text(PaywallPricing.yearlyReferencePriceText)
+            if isYearly, let reference = yearlyReferencePrice {
+                Text(reference.formatted(product.priceFormatStyle))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .strikethrough(true, color: .secondary)
@@ -280,6 +267,13 @@ struct PaywallView: View {
                 Text(suffix)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            // Apple 3.1.2: "price per unit if appropriate" — yıllık planın aylık karşılığı.
+            if isYearly {
+                Text("≈ \((product.price / 12).formatted(product.priceFormatStyle)) / ay")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -357,7 +351,7 @@ struct PaywallView: View {
 
                 Text("•").foregroundStyle(.tertiary)
 
-                Link("EULA", destination: Self.appleEULA)
+                Link("EULA", destination: AppLinks.appleEULA)
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -383,43 +377,67 @@ struct PaywallView: View {
     // MARK: - Legal (scroll area)
 
     private var legalInlineSection: some View {
-        Text("Abonelikler, iptal edilmediği sürece otomatik olarak yenilenir. Satın alma işlemi Apple Kimliğiniz üzerinden gerçekleştirilir.")
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Abonelik Koşulları")
+                .font(.caption2.bold())
+                .foregroundStyle(.secondary)
+
+            Text("""
+            Pro Aylık Abonelik 1 ay, Pro Yıllık Abonelik 1 yıl sürelidir ve otomatik olarak yenilenir. \
+            Ömür Boyu Pro tek seferlik bir satın almadır, abonelik değildir.
+
+            Ödeme, satın alma onayında Apple Kimliği hesabınıza yansıtılır. Abonelik, mevcut dönemin \
+            bitiminden en az 24 saat önce kapatılmadığı sürece otomatik olarak yenilenir ve yenileme \
+            ücreti dönem bitiminden önceki 24 saat içinde tahsil edilir. Aboneliğinizi App Store > \
+            Apple Kimliği > Abonelikler bölümünden yönetebilir veya iptal edebilirsiniz.
+            """)
             .font(.caption2)
             .foregroundStyle(.tertiary)
-            .multilineTextAlignment(.center)
-            .padding(.bottom, 8)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Copy helpers
 
     private func planTitle(for product: Product) -> String {
         switch product.id {
-        case PurchaseService.monthlyProductID: return "Aylık Pro"
-        case PurchaseService.yearlyProductID: return "Yıllık Pro"
-        case PurchaseService.unlimitedProductID: return "Ömür Boyu"
+        case PurchaseService.monthlyProductID: return "Pro Aylık Abonelik"
+        case PurchaseService.yearlyProductID: return "Pro Yıllık Abonelik"
+        case PurchaseService.unlimitedProductID: return "Ömür Boyu Pro"
         default: return product.displayName
         }
     }
 
+    /// Apple 3.1.2: abonelik süresi paywall'da açıkça yazmalı. Süre sabit metinden değil,
+    /// ürünün gerçek `subscriptionPeriod`'undan türetilir; varsa tanıtım teklifi de eklenir.
     private func planSubtitle(for product: Product) -> String {
-        switch product.id {
-        case PurchaseService.monthlyProductID:
-            return "Esnek kullanım — istediğiniz zaman iptal"
-        case PurchaseService.yearlyProductID:
-            return "12 aylık pakete göre tasarruf — yıllık yenilenir"
-        case PurchaseService.unlimitedProductID:
-            return "Tek ödeme — abonelik yok, kalıcı erişim"
-        default:
-            return product.description
+        guard let period = product.subscription?.subscriptionPeriod else {
+            return product.id == PurchaseService.unlimitedProductID
+                ? "Tek ödeme — abonelik yok, kalıcı erişim"
+                : product.description
         }
+
+        var parts = ["\(period.paywallDescription) · otomatik yenilenir"]
+
+        if let intro = product.introOfferDescription {
+            parts.append(intro)
+        }
+
+        if product.id == PurchaseService.yearlyProductID {
+            parts.append("12 aylık pakete göre tasarruf")
+        } else {
+            parts.append("istediğiniz zaman iptal")
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     private func periodSuffix(for product: Product) -> String? {
-        switch product.id {
-        case PurchaseService.monthlyProductID: return "/ ay"
-        case PurchaseService.yearlyProductID: return "/ yıl"
-        default: return nil
-        }
+        guard let period = product.subscription?.subscriptionPeriod else { return nil }
+        return "/ \(period.priceSuffixDescription)"
     }
 
     private var ctaTitle: String {
@@ -444,11 +462,15 @@ struct PaywallView: View {
             ?? purchaseService.sortedProducts.first?.id
     }
 
+    /// 12 × canlı aylık fiyat. Aylık ürün henüz yüklenmediyse referans gösterilmez.
+    private var yearlyReferencePrice: Decimal? {
+        guard let monthlyProduct else { return nil }
+        return monthlyProduct.price * 12
+    }
+
     private func savingsPercent(for product: Product) -> Int? {
         guard product.id == PurchaseService.yearlyProductID else { return nil }
-
-        let reference = PaywallPricing.yearlyReferencePrice
-        guard reference > product.price else { return nil }
+        guard let reference = yearlyReferencePrice, reference > product.price else { return nil }
 
         let ratio = (reference - product.price) / reference
         return Int(truncating: (ratio * 100) as NSDecimalNumber)
@@ -475,13 +497,28 @@ private extension Product {
 }
 
 private extension Product.SubscriptionPeriod {
+    /// Süreyi sayıyla birlikte yazar: "1 ay", "1 yıl". Paywall'da abonelik uzunluğunu
+    /// açıkça göstermek için kullanılır (App Review 3.1.2).
     var paywallDescription: String {
         switch unit {
-        case .day: return value == 1 ? "1 gün" : "\(value) gün"
-        case .week: return value == 1 ? "1 hafta" : "\(value) hafta"
-        case .month: return value == 1 ? "1 ay" : "\(value) ay"
-        case .year: return value == 1 ? "1 yıl" : "\(value) yıl"
+        case .day: return "\(value) gün"
+        case .week: return "\(value) hafta"
+        case .month: return "\(value) ay"
+        case .year: return "\(value) yıl"
         @unknown default: return "\(value) dönem"
+        }
+    }
+
+    /// Fiyatın yanındaki kısa ek: tek dönemde birim adı ("/ ay"), çoklu dönemde sayıyla ("/ 3 ay").
+    var priceSuffixDescription: String {
+        guard value == 1 else { return paywallDescription }
+
+        switch unit {
+        case .day: return "gün"
+        case .week: return "hafta"
+        case .month: return "ay"
+        case .year: return "yıl"
+        @unknown default: return "dönem"
         }
     }
 }

@@ -51,7 +51,7 @@
           "localizations" : [
             {
               "description" : "Aylık sınırsız belge dönüştürme ve Pro araçlar",
-              "displayName" : "Pro Aylık",
+              "displayName" : "Pro Aylık Abonelik",
               "locale" : "tr"
             }
           ],
@@ -76,7 +76,7 @@
           "localizations" : [
             {
               "description" : "Yıllık sınırsız belge dönüştürme ve Pro araçlar",
-              "displayName" : "Pro Yıllık",
+              "displayName" : "Pro Yıllık Abonelik",
               "locale" : "tr"
             }
           ],

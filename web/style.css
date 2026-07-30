@@ -648,12 +648,12 @@ img { display: block; max-width: 100%; }
     padding: 38px 34px;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .price-card--featured {
     border: 2px solid var(--amber);
     box-shadow: 0 20px 50px rgba(245, 184, 65, 0.14);
-    position: relative;
 }
 
 .price-card__tag {
@@ -667,6 +667,11 @@ img { display: block; max-width: 100%; }
     letter-spacing: 0.06em;
     padding: 4px 14px;
     border-radius: var(--radius-pill);
+}
+
+.price-card:not(.price-card--featured) .price-card__tag {
+    background: var(--navy-800);
+    color: var(--on-dark);
 }
 
 .price-card h3 { font-size: 21px; margin-bottom: 4px; }
@@ -700,6 +705,16 @@ img { display: block; max-width: 100%; }
 .price-card li.dim::before { content: "—"; color: var(--ink-faint); }
 
 .price-card .btn { margin-top: auto; }
+
+.pricing__note {
+    max-width: 880px;
+    margin-top: 26px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-faint);
+}
+
+.pricing__note a { color: var(--ink-soft); }
 
 /* ---------- SSS ---------- */
 

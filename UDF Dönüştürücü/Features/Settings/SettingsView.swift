@@ -62,6 +62,10 @@ struct SettingsView: View {
                 } label: {
                     Label("Kullanım Koşulları", systemImage: "doc.text")
                 }
+
+                Link(destination: AppLinks.appleEULA) {
+                    Label("Lisans Sözleşmesi (EULA)", systemImage: "doc.badge.gearshape")
+                }
             }
 
             // Support
@@ -113,7 +117,7 @@ struct PrivacyPolicyView: View {
                 Text("Gizlilik Politikası")
                     .font(.title).bold()
 
-                Text("Son güncelleme: Mart 2026")
+                Text("Son güncelleme: Temmuz 2026")
                     .foregroundStyle(.secondary)
 
                 Group {
@@ -124,7 +128,7 @@ struct PrivacyPolicyView: View {
                     Text("Dönüştürme geçmişi (yalnızca dosya adı ve tarih bilgisi) cihazınızda yerel olarak saklanır. Bu bilgiler üçüncü taraflarla paylaşılmaz ve yalnızca uygulamanın geçmiş ekranında görülebilir.")
 
                     Text("Uygulama İçi Satın Alma").font(.headline)
-                    Text("Premium özellikler aylık/yıllık abonelik veya tek seferlik ödeme ile satın alınabilir. Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir. Ödeme ve işlem bilgileri yalnızca Apple tarafından yönetilir; uygulama bu bilgilere erişemez.")
+                    Text("Premium özellikler, otomatik yenilenen Pro Aylık (1 ay) veya Pro Yıllık (1 yıl) abonelikle ya da tek seferlik Ömür Boyu Pro satın almasıyla edinilebilir. Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir. Ödeme ve işlem bilgileri yalnızca Apple tarafından yönetilir; uygulama bu bilgilere erişemez.")
 
                     Text("Analitik Veriler").font(.headline)
                     Text("Uygulamayı geliştirmek amacıyla anonim kullanım istatistikleri (örn. ekran görüntülenme ve satın alma olayları) Google Firebase Analytics aracılığıyla toplanabilir. Bu veriler kimliğinizi tanımlamaz ve belge içeriklerinizle ilişkilendirilmez.")
@@ -136,6 +140,12 @@ struct PrivacyPolicyView: View {
                     Text("Gizlilik politikamız hakkındaki sorularınız için bizimle iletişime geçebilirsiniz.")
                     Text("E-posta: info@velikececi.com")
                 }
+
+                Link(destination: AppLinks.privacyPolicy) {
+                    Label("Gizlilik politikasını web'de görüntüle", systemImage: "safari")
+                        .font(.subheadline)
+                }
+                .padding(.top, 4)
             }
             .padding()
         }
@@ -153,7 +163,7 @@ struct TermsView: View {
                 Text("Kullanım Koşulları")
                     .font(.title).bold()
 
-                Text("Son güncelleme: Nisan 2026")
+                Text("Son güncelleme: Temmuz 2026")
                     .foregroundStyle(.secondary)
 
                 Group {
@@ -177,8 +187,17 @@ struct TermsView: View {
                     Text("Ücretsiz Kullanım ve Limitler").font(.headline)
                     Text("• Ücretsiz kullanıcılar günlük 1 dönüştürme hakkına sahiptir.\n• Reklam izleyerek günde en fazla 2 ek dönüştürme hakkı kazanılabilir.\n• Limit her gün gece yarısı sıfırlanır.\n• Dönüştürme geçmişi 7 gün boyunca saklanır.")
 
-                    Text("Premium Üyelik").font(.headline)
-                    Text("• Premium; aylık abonelik, yıllık abonelik veya tek seferlik \"Ömür Boyu\" satın alma ile edinilebilir. Güncel fiyatlar uygulama içindeki Pro ekranında ve App Store'da gösterilir.\n• Abonelikler, dönem sonunda otomatik olarak yenilenir. Yenilemeyi App Store hesap ayarlarınızdan istediğiniz zaman kapatabilirsiniz.\n• Premium; sınırsız dönüştürme sağlar, tüm reklamları kaldırır ve dönüştürme geçmişini 30 güne uzatır.")
+                    Text("Pro Üyelik Planları").font(.headline)
+                    Text("• Pro Aylık Abonelik — 1 ay süreli, otomatik yenilenen abonelik.\n• Pro Yıllık Abonelik — 1 yıl süreli, otomatik yenilenen abonelik.\n• Ömür Boyu Pro — tek seferlik satın alma, abonelik değildir.")
+                    Text("Güncel fiyatlar bulunduğunuz ülkenin App Store fiyatlandırmasına göre değişir ve uygulama içindeki Pro ekranında satın alma öncesinde gösterilir.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("Pro üyelik; sınırsız dönüştürme sağlar, tüm reklamları kaldırır, toplu dönüştürme ve Pro Araçlar'ı açar ve dönüştürme geçmişini 30 güne uzatır.")
+                }
+
+                Group {
+                    Text("Aboneliğin Yenilenmesi ve İptali").font(.headline)
+                    Text("• Ödeme, satın alma onayında Apple Kimliği hesabınıza yansıtılır.\n• Abonelik, mevcut dönemin bitiminden en az 24 saat önce kapatılmadığı sürece otomatik olarak yenilenir.\n• Yenileme ücreti, dönem bitiminden önceki 24 saat içinde tahsil edilir.\n• Aboneliğinizi App Store > Apple Kimliği > Abonelikler bölümünden yönetebilir veya iptal edebilirsiniz. Mevcut dönem içinde iptal edilen abonelikler dönem sonuna kadar geçerli kalır.")
                     Text("Satın alma işlemleri Apple App Store üzerinden gerçekleştirilir ve Apple'ın standart iade politikalarına tabidir. İade talepleri için doğrudan Apple ile iletişime geçmeniz gerekmektedir.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -193,6 +212,19 @@ struct TermsView: View {
                     Text("Kullanım koşulları hakkındaki sorularınız için:")
                     Text("E-posta: info@velikececi.com")
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Link(destination: AppLinks.termsOfUse) {
+                        Label("Kullanım koşullarını web'de görüntüle", systemImage: "safari")
+                            .font(.subheadline)
+                    }
+
+                    Link(destination: AppLinks.appleEULA) {
+                        Label("Apple Standart Lisans Sözleşmesi (EULA)", systemImage: "doc.badge.gearshape")
+                            .font(.subheadline)
+                    }
+                }
+                .padding(.top, 4)
             }
             .padding()
         }
