@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 enum ProTool: String, CaseIterable, Identifiable, Hashable {
     case merge
+    case split
     case compress
     case encrypt
     case editor
@@ -17,6 +18,7 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .merge: return "Belge Birleştirme"
+        case .split: return "Belge Bölme"
         case .compress: return "PDF Sıkıştırma"
         case .encrypt: return "PDF Şifreleme"
         case .editor: return "UDF Düzenleme"
@@ -29,6 +31,7 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
     var subtitle: String {
         switch self {
         case .merge: return "Birden fazla UDF/PDF'i tek PDF yapın"
+        case .split: return "Sayfa aralığı çıkarın veya sayfalara ayırın"
         case .compress: return "Büyük PDF'lerin boyutunu küçültün"
         case .encrypt: return "PDF'e parola koruması ekleyin"
         case .editor: return "Metin, tablo, renk ve UYAP alanları"
@@ -41,6 +44,7 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
     var icon: String {
         switch self {
         case .merge: return "doc.on.doc.fill"
+        case .split: return "scissors"
         case .compress: return "arrow.down.right.and.arrow.up.left"
         case .encrypt: return "lock.doc.fill"
         case .editor: return "pencil.and.outline"
@@ -53,6 +57,7 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
     var tint: Color {
         switch self {
         case .merge: return .blue
+        case .split: return .teal
         case .compress: return .green
         case .encrypt: return .red
         case .editor: return .indigo
@@ -180,6 +185,7 @@ struct ToolsView: View {
     private func destination(for tool: ProTool) -> some View {
         switch tool {
         case .merge: MergeView()
+        case .split: SplitView()
         case .compress: CompressView()
         case .encrypt: EncryptView()
         case .editor: UDFEditorView()

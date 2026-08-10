@@ -109,6 +109,50 @@ UDF,UYAP,dönüştürücü,PDF,Word,belge,evrak,dosya,çevir,avukat
 
 ---
 
+## Fiyatlandırma (Türkiye storefront'u)
+
+Kaynak: App Store Connect. `UDF Dönüştürücü/Products.storekit` yalnızca yerel test yapılandırmasıdır ve
+bu tabloyla senkron tutulmalıdır. Paywall fiyatları StoreKit'ten canlı okuduğu için fiyat değişikliği
+**kod değişikliği gerektirmez.**
+
+| Ürün | Product ID | Eski | Yeni |
+|---|---|---|---|
+| Pro Aylık Abonelik (1 ay) | `com.evrakdonus.pro.month` | ₺49,99 | **₺249,99** |
+| Pro Yıllık Abonelik (1 yıl) | `com.evrakdonus.pro.yearly` | ₺499,99 | **₺1.799,99** |
+| Ömür Boyu Pro (tek seferlik) | `com.evrakdonus.pro.unlimited` | ₺999,99 | ⚠️ karar bekliyor |
+
+**Yıllık fiyat nasıl belirlendi:** 12 × 249,99 = ₺2.999,88 → %40 indirimle **₺1.799,99**.
+Aylık karşılığı tam ₺150,00 çıkıyor; paywall bunu yıllık planın altında `≈ ₺150,00 / ay` olarak
+otomatik gösteriyor, üstü çizili referansı da `12 × aylık` olarak kendi hesaplıyor.
+
+### ⚠️ Ömür Boyu Pro bu fiyatlarla uygulanamaz
+
+₺999,99'luk Ömür Boyu, yeni fiyatlarla **yıllık abonelikten (₺1.799,99) ucuz** ve yalnızca
+**4 aylık** aboneliğe denk geliyor. Bu haliyle her iki abonelik de anlamsızlaşır — rasyonel her
+kullanıcı Ömür Boyu alır ve bir daha ödeme yapmaz.
+
+Aylık zammı uygulamadan **önce** Ömür Boyu fiyatı da yükseltilmeli. Sağlıklı bant
+(24-36 × aylık, 2,5-3 × yıllık):
+
+| Seçenek | Fiyat | Aylık karşılığı | Yıllık karşılığı |
+|---|---|---|---|
+| Alt sınır | ₺4.999,99 | 20 ay | 2,8 yıl |
+| **Önerilen** | **₺5.999,99** | 24 ay | 3,3 yıl |
+| Üst sınır | ₺7.999,99 | 32 ay | 4,4 yıl |
+
+Non-consumable ürünlerde fiyat artışı mevcut satın almaları etkilemez; yalnızca yeni alımlara
+uygulanır. Yani bu zam risksizdir.
+
+### Uygulama sırası
+
+1. Ömür Boyu Pro fiyatını yükselt (risksiz, önce bu yapılmalı)
+2. Pro Yıllık → ₺1.799,99
+3. Pro Aylık → ₺249,99 — **"mevcut aboneler eski fiyatta kalsın" seçeneğini işaretleyin**,
+   aksi halde Apple'ın onay/bildirim akışı devreye girer ve gereksiz churn yaratır
+4. `Products.storekit` dosyasını nihai fiyatlarla senkronla
+
+---
+
 ## Kategori
 
 | Alan | Seçim |

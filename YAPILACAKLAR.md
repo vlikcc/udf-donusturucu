@@ -98,11 +98,14 @@
 - [ ] App ikonu son halini kontrol et (1024x1024, alfa kanalı olmadan)
 
 ### 3.4 StoreKit / Uygulama İçi Satın Alma
-- [ ] App Store Connect'te uygulama içi satın alma ürünü oluştur:
-  - Product ID: `com.evrakdonus.unlimited`
-  - Tür: Non-Consumable (tek seferlik satın alma)
-  - Fiyat belirle
-  - Açıklama ve görünen adı yaz
+- [x] App Store Connect'te ürünler oluşturuldu:
+  - `com.evrakdonus.pro.month` — Pro Aylık Abonelik (1 ay, otomatik yenilenen)
+  - `com.evrakdonus.pro.yearly` — Pro Yıllık Abonelik (1 yıl, otomatik yenilenen)
+  - `com.evrakdonus.pro.unlimited` — Ömür Boyu Pro (Non-Consumable)
+  - Eski `com.evrakdonus.unlimited` ve `com.evrakdonus.pro.weekly` yayından kaldırıldı; entitlement
+    kontrolünde `PurchaseService.legacyProductIDs` altında tutuluyor
+- [ ] Fiyat güncellemesi uygula — güncel tablo ve uygulama sırası için `App_Store_Bilgileri.md` >
+      "Fiyatlandırma" bölümüne bakın (Ömür Boyu fiyatı karar bekliyor)
 - [ ] Satın alma inceleme bilgilerini ekle (ekran görüntüsü + açıklama)
 - [ ] Sandbox test hesabı oluştur ve satın alma akışını test et
 

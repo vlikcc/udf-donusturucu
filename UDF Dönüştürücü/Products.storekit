@@ -5,7 +5,7 @@
   ],
   "products" : [
     {
-      "displayPrice" : "1499.99",
+      "displayPrice" : "999.99",
       "familyShareable" : false,
       "internalID" : "6750000001",
       "localizations" : [
@@ -43,7 +43,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "49.99",
+          "displayPrice" : "249.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6750000101",
@@ -68,7 +68,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "499.99",
+          "displayPrice" : "1799.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6750000102",
