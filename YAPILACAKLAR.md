@@ -104,8 +104,9 @@
   - `com.evrakdonus.pro.unlimited` — Ömür Boyu Pro (Non-Consumable)
   - Eski `com.evrakdonus.unlimited` ve `com.evrakdonus.pro.weekly` yayından kaldırıldı; entitlement
     kontrolünde `PurchaseService.legacyProductIDs` altında tutuluyor
-- [ ] Fiyat güncellemesi uygula — güncel tablo ve uygulama sırası için `App_Store_Bilgileri.md` >
-      "Fiyatlandırma" bölümüne bakın (Ömür Boyu fiyatı karar bekliyor)
+- [ ] Fiyat güncellemesini App Store Connect'te uygula: Ömür Boyu ₺5.999,99 → Yıllık ₺1.799,99 →
+      Aylık ₺249,99. Sıra ve mevcut aboneleri koruma adımı için `App_Store_Bilgileri.md` >
+      "Fiyatlandırma" bölümüne bakın
 - [ ] Satın alma inceleme bilgilerini ekle (ekran görüntüsü + açıklama)
 - [ ] Sandbox test hesabı oluştur ve satın alma akışını test et
 

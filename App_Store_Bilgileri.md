@@ -119,37 +119,41 @@ bu tabloyla senkron tutulmalıdır. Paywall fiyatları StoreKit'ten canlı okudu
 |---|---|---|---|
 | Pro Aylık Abonelik (1 ay) | `com.evrakdonus.pro.month` | ₺49,99 | **₺249,99** |
 | Pro Yıllık Abonelik (1 yıl) | `com.evrakdonus.pro.yearly` | ₺499,99 | **₺1.799,99** |
-| Ömür Boyu Pro (tek seferlik) | `com.evrakdonus.pro.unlimited` | ₺999,99 | ⚠️ karar bekliyor |
+| Ömür Boyu Pro (tek seferlik) | `com.evrakdonus.pro.unlimited` | ₺999,99 | **₺5.999,99** |
 
-**Yıllık fiyat nasıl belirlendi:** 12 × 249,99 = ₺2.999,88 → %40 indirimle **₺1.799,99**.
-Aylık karşılığı tam ₺150,00 çıkıyor; paywall bunu yıllık planın altında `≈ ₺150,00 / ay` olarak
-otomatik gösteriyor, üstü çizili referansı da `12 × aylık` olarak kendi hesaplıyor.
+### Merdiven neden bu rakamlarda
 
-### ⚠️ Ömür Boyu Pro bu fiyatlarla uygulanamaz
+| Kural | Hedef | Sonuç |
+|---|---|---|
+| 12 × aylık > yıllık | zorunlu | ₺2.999,88 > ₺1.799,99 ✔ |
+| Yıllık indirimi | %30-40 | **%40,0** ✔ |
+| Ömür Boyu ÷ aylık | 24-36 ay | **24,0 ay** ✔ |
+| Ömür Boyu ÷ yıllık | 2,5-3,5 yıl | **3,33 yıl** ✔ |
 
-₺999,99'luk Ömür Boyu, yeni fiyatlarla **yıllık abonelikten (₺1.799,99) ucuz** ve yalnızca
-**4 aylık** aboneliğe denk geliyor. Bu haliyle her iki abonelik de anlamsızlaşır — rasyonel her
-kullanıcı Ömür Boyu alır ve bir daha ödeme yapmaz.
-
-Aylık zammı uygulamadan **önce** Ömür Boyu fiyatı da yükseltilmeli. Sağlıklı bant
-(24-36 × aylık, 2,5-3 × yıllık):
-
-| Seçenek | Fiyat | Aylık karşılığı | Yıllık karşılığı |
-|---|---|---|---|
-| Alt sınır | ₺4.999,99 | 20 ay | 2,8 yıl |
-| **Önerilen** | **₺5.999,99** | 24 ay | 3,3 yıl |
-| Üst sınır | ₺7.999,99 | 32 ay | 4,4 yıl |
-
-Non-consumable ürünlerde fiyat artışı mevcut satın almaları etkilemez; yalnızca yeni alımlara
-uygulanır. Yani bu zam risksizdir.
+Yıllığın aylık karşılığı tam **₺150,00** çıkıyor. Paywall bunu yıllık planın altında
+`≈ ₺150,00 / ay` olarak, üstü çizili referansı da `12 × aylık` olarak kendisi hesaplıyor —
+fiyatları App Store Connect'te değiştirdiğinizde kodda hiçbir şeye dokunmanız gerekmiyor.
 
 ### Uygulama sırası
 
-1. Ömür Boyu Pro fiyatını yükselt (risksiz, önce bu yapılmalı)
-2. Pro Yıllık → ₺1.799,99
-3. Pro Aylık → ₺249,99 — **"mevcut aboneler eski fiyatta kalsın" seçeneğini işaretleyin**,
-   aksi halde Apple'ın onay/bildirim akışı devreye girer ve gereksiz churn yaratır
-4. `Products.storekit` dosyasını nihai fiyatlarla senkronla
+Sıra önemli: Ömür Boyu güncellenmeden abonelik zamları uygulanırsa, Ömür Boyu bir süre
+yıllık abonelikten ucuz kalır ve o aralıkta satın alanlar kalıcı olarak o fiyattan yararlanır.
+
+1. **Ömür Boyu Pro → ₺5.999,99.** Risksiz: non-consumable ürünlerde fiyat artışı tamamlanmış
+   satın almaları etkilemez, yalnızca yeni alımlara uygulanır.
+2. **Pro Yıllık → ₺1.799,99.** Fiyat adımında **"mevcut aboneler şu anki fiyatlarında kalsın"**
+   seçeneğini işaretleyin.
+3. **Pro Aylık → ₺249,99.** Aynı şekilde mevcut aboneleri koruyun.
+4. `Products.storekit` dosyasını nihai fiyatlarla senkronla. *(Bu repoda yapıldı.)*
+
+Mevcut aboneleri korumazsanız Apple'ın iki rejiminden birine girersiniz: ya abonenin **aktif
+onayı** gerekir (onaylamayan abonelik yenilenmez), ya da onaysız artış kurallarına uyduğunuzda
+(yılda en fazla bir kez, sınırlı oran ve tutar) Apple tüm abonelere bildirim gönderir. İkisi de
+churn üretir; koruma seçeneği hiçbirini tetiklemez.
+
+**Korumanın sınırları:** grandfathering aboneliğe bağlıdır, kişiye değil. Korunan bir abone
+iptal edip sonra yeniden abone olursa güncel fiyatı öder; aylıktan yıllığa (veya tersine)
+geçerse de yeni fiyat uygulanır. Her ürün ve her storefront için ayrı ayrı yapılır.
 
 ---
 
