@@ -133,10 +133,12 @@ struct PaywallView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 featureChip(icon: "infinity", text: "Sınırsız dönüştürme")
                 featureChip(icon: "rectangle.slash", text: "Reklamsız")
+                featureChip(icon: "folder.fill", text: "Dava dosyaları")
+                featureChip(icon: "clock.arrow.circlepath", text: "30 gün geçmiş")
                 featureChip(icon: "doc.on.doc", text: "Toplu dönüştürme")
+                featureChip(icon: "scissors", text: "Belge bölme")
                 featureChip(icon: "wrench.and.screwdriver", text: "Pro Araçlar")
                 featureChip(icon: "pencil.and.outline", text: "UDF düzenleme")
-                featureChip(icon: "clock.arrow.circlepath", text: "30 gün geçmiş")
             }
         }
         .padding(14)

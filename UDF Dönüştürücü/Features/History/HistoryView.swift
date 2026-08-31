@@ -4,21 +4,21 @@ import UniformTypeIdentifiers
 struct HistoryView: View {
     @ObservedObject var storage = ConversionStorage.shared
     @ObservedObject var limitService = LimitService.shared
+    @ObservedObject private var caseStore = CaseFileStore.shared
 
     @State private var shareURL: URL?
     @State private var previewURL: URL?
-    @State private var showExporter = false
-    @State private var exportData: Data?
-    @State private var exportFileName = ""
-    @State private var exportUTType: UTType = .pdf
-    @State private var confirmDeleteRecord: ConversionRecord?
+    @State private var exporter = RecordExporter()
+    @State private var assigningRecord: ConversionRecord?
     @State private var showPaywall = false
+    @State private var paywallSource = "history"
 
     var body: some View {
         List {
             if !limitService.isPremium {
                 Section {
                     Button {
+                        paywallSource = "history"
                         showPaywall = true
                     } label: {
                         HStack(spacing: 12) {
@@ -41,6 +41,8 @@ struct HistoryView: View {
                 }
             }
 
+            caseFilesSection
+
             if storage.recentRecords.isEmpty {
                 ContentUnavailableView(
                     "Henüz dönüşüm yok",
@@ -48,12 +50,29 @@ struct HistoryView: View {
                     description: Text("Dönüştürdüğünüz dosyalar burada görünecek.")
                 )
             } else {
-                // Available files section
                 let available = storage.availableRecords
                 if !available.isEmpty {
                     Section {
                         ForEach(available) { record in
-                            historyRow(record)
+                            ConversionRecordRow(
+                                record: record,
+                                onPreview: { previewURL = $0 },
+                                onShare: { shareURL = $0 },
+                                onSave: { exporter.prepare(for: $0) }
+                            )
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    if limitService.isPremium {
+                                        assigningRecord = record
+                                    } else {
+                                        paywallSource = "history_case"
+                                        showPaywall = true
+                                    }
+                                } label: {
+                                    Label("Dosya", systemImage: "folder.badge.plus")
+                                }
+                                .tint(AppTheme.navy)
+                            }
                         }
                         .onDelete { indexSet in
                             for index in indexSet {
@@ -62,10 +81,13 @@ struct HistoryView: View {
                         }
                     } header: {
                         Text("Dosyalar (\(available.count))")
+                    } footer: {
+                        if limitService.isPremium {
+                            Text("Bir belgeyi sağa kaydırıp dava dosyasına ekleyebilirsiniz.")
+                        }
                     }
                 }
 
-                // Failed / missing files section
                 let unavailable = storage.recentRecords.filter { !$0.success || !$0.fileExists }
                 if !unavailable.isEmpty {
                     Section {
@@ -97,72 +119,72 @@ struct HistoryView: View {
             ActivityViewController(activityItems: [url])
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView(source: "history")
+            PaywallView(source: paywallSource)
+        }
+        .sheet(item: $assigningRecord) { record in
+            CasePickerView(record: record)
         }
         .navigationDestination(item: $previewURL) { url in
             DocumentPreviewView(url: url)
         }
         .fileExporter(
-            isPresented: $showExporter,
-            document: ExportFileDocument(data: exportData ?? Data()),
-            contentType: exportUTType,
-            defaultFilename: exportFileName
+            isPresented: $exporter.isPresented,
+            document: ExportFileDocument(data: exporter.data),
+            contentType: exporter.contentType,
+            defaultFilename: exporter.fileName
         ) { _ in }
     }
 
-    // MARK: - Available File Row
+    // MARK: - Dava dosyaları girişi
 
-    private func historyRow(_ record: ConversionRecord) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                formatIcon(record.outputFormat)
-                    .frame(width: 40, height: 40)
-                    .background(formatColor(record.outputFormat).opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(record.originalFileName)
-                        .font(.subheadline).bold()
-                        .lineLimit(1)
-                    HStack(spacing: 8) {
-                        Text(record.outputFormat)
-                            .font(.caption2).bold()
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(formatColor(record.outputFormat).opacity(0.15), in: Capsule())
-                            .foregroundStyle(formatColor(record.outputFormat))
-
-                        Text(record.date, format: .dateTime.month(.abbreviated).day().hour().minute())
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+    @ViewBuilder
+    private var caseFilesSection: some View {
+        Section {
+            if limitService.isPremium {
+                NavigationLink {
+                    CaseFilesView()
+                } label: {
+                    caseFilesLabel(detail: "\(caseStore.cases.count) dosya")
                 }
-
-                Spacer()
-            }
-
-            // Action buttons
-            HStack(spacing: 12) {
-                DocumentActionButton(title: "Görüntüle", systemImage: "eye") {
-                    if let url = record.resolvedURL {
-                        previewURL = url
+            } else {
+                Button {
+                    paywallSource = "history_case"
+                    showPaywall = true
+                } label: {
+                    HStack {
+                        caseFilesLabel(detail: "Pro özelliği")
+                        Spacer()
+                        Image(systemName: "lock.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.orange)
                     }
-                }
-
-                DocumentActionButton(title: "Paylaş", systemImage: "square.and.arrow.up") {
-                    if let url = record.resolvedURL {
-                        shareURL = url
-                    }
-                }
-
-                DocumentActionButton(title: "Kaydet", systemImage: "folder.badge.plus", tint: .green) {
-                    saveToFiles(record: record)
                 }
             }
+        } footer: {
+            Text("Belgelerinizi dava veya iş bazında gruplayın. Dosyaya eklenen belgeler geçmiş süresinden etkilenmez.")
         }
-        .padding(.vertical, 4)
     }
 
-    // MARK: - Unavailable File Row
+    private func caseFilesLabel(detail: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "folder.fill")
+                .font(.title3)
+                .foregroundStyle(AppTheme.navy)
+                .frame(width: 38, height: 38)
+                .background(AppTheme.navy.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Dava Dosyaları")
+                    .font(.subheadline).bold()
+                    .foregroundStyle(.primary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Kullanılamayan belge satırı
 
     private func historyRowUnavailable(_ record: ConversionRecord) -> some View {
         HStack(spacing: 12) {
@@ -196,49 +218,6 @@ struct HistoryView: View {
                     .font(.caption2)
                     .foregroundStyle(.red)
             }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func saveToFiles(record: ConversionRecord) {
-        guard let url = record.resolvedURL,
-              let data = try? Data(contentsOf: url) else { return }
-        exportData = data
-        exportFileName = url.lastPathComponent
-        switch record.outputFormat.uppercased() {
-        case "PDF":
-            exportUTType = .pdf
-        case "DOCX":
-            exportUTType = UTType(filenameExtension: "docx") ?? .data
-        case "UDF":
-            exportUTType = UTType(filenameExtension: "udf") ?? .data
-        default:
-            exportUTType = .data
-        }
-        showExporter = true
-    }
-
-    private func formatIcon(_ format: String) -> some View {
-        let icon: String
-        let color: Color
-        switch format.uppercased() {
-        case "PDF": icon = "doc.richtext.fill"; color = .red
-        case "DOCX": icon = "doc.text.fill"; color = .blue
-        case "UDF": icon = "doc.fill"; color = AppTheme.navy
-        default: icon = "doc.fill"; color = .gray
-        }
-        return Image(systemName: icon)
-            .font(.title3)
-            .foregroundStyle(color)
-    }
-
-    private func formatColor(_ format: String) -> Color {
-        switch format.uppercased() {
-        case "PDF": return .red
-        case "DOCX": return .blue
-        case "UDF": return AppTheme.navy
-        default: return .gray
         }
     }
 }

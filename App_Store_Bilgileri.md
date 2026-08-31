@@ -63,6 +63,8 @@ Tüm dönüştürme işlemleri tamamen cihazınız üzerinde gerçekleşir. Belg
 • PDF → UDF dönüştürme
 • DOCX → UDF dönüştürme
 • Toplu dosya dönüştürme desteği
+• Pro Araçlar: belge birleştirme, bölme, sıkıştırma, şifreleme, OCR, UDF düzenleme
+• Dava dosyası ile belgeleri gruplama ve kalıcı arşivleme
 • Dönüşüm geçmişi ve hızlı erişim
 • Koyu mod (Dark Mode) desteği
 • Tamamen Türkçe arayüz

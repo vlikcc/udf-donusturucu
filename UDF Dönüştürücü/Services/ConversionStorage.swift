@@ -9,8 +9,18 @@ struct ConversionRecord: Identifiable, Codable {
     let success: Bool
     let outputPath: String?      // Legacy: full path (may break across launches)
     let outputFileName: String?  // New: just the file name, resolved at runtime
+    /// Belgenin etiketlendiği dava dosyası. Opsiyonel olduğu için bu alandan önce
+    /// kaydedilmiş geçmiş kayıtları da sorunsuz çözümlenir (nil olarak gelir).
+    var caseFileID: UUID?
 
-    init(originalFileName: String, outputFormat: String, success: Bool, outputPath: String? = nil) {
+    init(
+        originalFileName: String,
+        outputFormat: String,
+        success: Bool,
+        outputPath: String? = nil,
+        caseFileID: UUID? = nil
+    ) {
+        self.caseFileID = caseFileID
         self.id = UUID()
         self.originalFileName = originalFileName
         self.outputFormat = outputFormat
@@ -98,6 +108,38 @@ final class ConversionStorage: ObservableObject {
         recentRecords.filter { $0.success && $0.fileExists }
     }
 
+    // MARK: - Dava dosyaları
+
+    /// Bir dava dosyasındaki belgeler. Geçmiş süresi (7/30 gün) burada **uygulanmaz** —
+    /// dosyaya eklenen belge arşivin parçasıdır ve zamanla kaybolmaz.
+    func records(inCase caseFileID: UUID) -> [ConversionRecord] {
+        records.filter { $0.caseFileID == caseFileID }
+    }
+
+    func availableRecords(inCase caseFileID: UUID) -> [ConversionRecord] {
+        records(inCase: caseFileID).filter { $0.success && $0.fileExists }
+    }
+
+    func documentCount(inCase caseFileID: UUID) -> Int {
+        records(inCase: caseFileID).count
+    }
+
+    func assign(_ record: ConversionRecord, to caseFileID: UUID?) {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        records[index].caseFileID = caseFileID
+        saveRecords()
+    }
+
+    /// Dosya silindiğinde belgelerin etiketini kaldırır; belgelerin kendisi durur.
+    func unassignAll(from caseFileID: UUID) {
+        var changed = false
+        for index in records.indices where records[index].caseFileID == caseFileID {
+            records[index].caseFileID = nil
+            changed = true
+        }
+        if changed { saveRecords() }
+    }
+
     private func loadRecords() {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([ConversionRecord].self, from: data) else {
@@ -108,7 +150,12 @@ final class ConversionStorage: ObservableObject {
 
     private func saveRecords() {
         if records.count > 200 {
-            records = Array(records.prefix(200))
+            // Dava dosyasına eklenmiş belgeler her zaman korunur; 200'lük sınır
+            // yalnızca etiketsiz geçmişi kırpar.
+            let assigned = records.filter { $0.caseFileID != nil }
+            let unassigned = records.filter { $0.caseFileID == nil }
+            let remaining = max(0, 200 - assigned.count)
+            records = (assigned + unassigned.prefix(remaining)).sorted { $0.date > $1.date }
         }
         if let data = try? JSONEncoder().encode(records) {
             UserDefaults.standard.set(data, forKey: storageKey)
