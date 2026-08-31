@@ -36,6 +36,8 @@ struct UDF_Donusturucu_App: App {
                 IncomingFileRouter.shared.handle(url: url)
             }
             .task {
+                // Share Extension'ın bıraktığı belgeleri devral.
+                ConversionStorage.shared.importPendingSharedRecords()
                 await AdsManager.shared.requestATTIfNeeded()
                 // Onboarding'i daha önce tamamlamış (mevcut) kullanıcılar yeni paywall'ı bir kez görür.
                 if hasCompletedOnboarding { presentIntroPaywallIfNeeded() }

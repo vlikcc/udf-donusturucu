@@ -108,6 +108,52 @@ final class ConversionStorage: ObservableObject {
         recentRecords.filter { $0.success && $0.fileExists }
     }
 
+    // MARK: - Share Extension'dan devralma
+
+    /// Share Extension'ın App Group gelen kutusuna bıraktığı belgeleri uygulamanın kendi
+    /// klasörüne taşır ve geçmişe ekler. Uygulama her öne geldiğinde çağrılır; bekleyen
+    /// kayıt yoksa hiçbir şey yapmaz.
+    func importPendingSharedRecords() {
+        let pending = AppGroup.loadPendingRecords()
+        guard !pending.isEmpty, let inbox = AppGroup.inboxDirectory() else { return }
+
+        let destinationDirectory = Self.outputDirectory
+        if !FileManager.default.fileExists(atPath: destinationDirectory.path) {
+            try? FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+        }
+
+        var imported: [ConversionRecord] = []
+        for item in pending {
+            let source = inbox.appendingPathComponent(item.inboxFileName)
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+
+            let destination = destinationDirectory.appendingPathComponent(item.inboxFileName)
+            try? FileManager.default.removeItem(at: destination)
+            do {
+                try FileManager.default.moveItem(at: source, to: destination)
+            } catch {
+                continue
+            }
+
+            imported.append(
+                ConversionRecord(
+                    originalFileName: item.originalFileName,
+                    outputFormat: item.outputFormat,
+                    success: true,
+                    outputPath: destination.path
+                )
+            )
+        }
+
+        // Taşınamayanlar bir sonraki açılışta yeniden denenmesin diye liste her hâlükârda temizlenir;
+        // kaynak dosya yoksa zaten devralınacak bir şey kalmamıştır.
+        AppGroup.savePendingRecords([])
+
+        guard !imported.isEmpty else { return }
+        records.insert(contentsOf: imported, at: 0)
+        saveRecords()
+    }
+
     // MARK: - Dava dosyaları
 
     /// Bir dava dosyasındaki belgeler. Geçmiş süresi (7/30 gün) burada **uygulanmaz** —
