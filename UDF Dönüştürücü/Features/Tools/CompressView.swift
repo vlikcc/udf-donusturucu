@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 struct CompressView: View {
     @State private var selectedFile: URL?
-    @State private var quality: PDFToolsService.CompressionQuality = .balanced
+    @State private var quality: PDFToolsService.CompressionQuality = .lossless
     @State private var showPicker = false
     @State private var isWorking = false
     @State private var result: PDFToolsService.CompressionResult?
@@ -21,7 +21,7 @@ struct CompressView: View {
                         .lineLimit(1)
                 }
             } footer: {
-                Text("Sayfalar sıkıştırılmış görüntüye dönüştürülür; metin seçimi kaybolur. Taranmış veya çok büyük PDF'ler için uygundur.")
+                Text("Kayıpsız mod metin aramasını korur — UYAP'a gidecek belgelerde bunu seçin. Diğer modlar sayfaları görüntüye çevirir; dosya belirgin küçülür ama metin araması kaybolur, taranmış belgeler için uygundur.")
             }
 
             if selectedFile != nil {
@@ -85,6 +85,22 @@ struct CompressView: View {
                         Text(ratio > 0 ? "%\(ratio) küçüldü" : "Bu dosya daha fazla küçültülemedi.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        if result.preservedText && ratio < 5 {
+                            Text("Bu belge kayıpsız yöntemle daha fazla küçültülemiyor. Taranmış sayfalardan oluşuyorsa \"Dengeli\" modu belirgin kazanç sağlar — ancak metin araması kaybolur.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if result.preservedText {
+                        Label("Metin araması korundu", systemImage: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Label("Metin araması kaldırıldı", systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
 
                     Button { previewURL = result.outputURL } label: {

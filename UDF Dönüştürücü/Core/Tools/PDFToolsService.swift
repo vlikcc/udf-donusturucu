@@ -4,6 +4,7 @@ import UIKit
 
 enum PDFToolsError: LocalizedError {
     case cannotOpen
+    case locked
     case compressionFailed
     case encryptionFailed
     case alreadyEncrypted
@@ -12,6 +13,8 @@ enum PDFToolsError: LocalizedError {
         switch self {
         case .cannotOpen:
             return "PDF dosyası açılamadı."
+        case .locked:
+            return "Bu PDF parola korumalı. Önce parolasını kaldırmanız gerekiyor."
         case .compressionFailed:
             return "PDF sıkıştırılamadı."
         case .encryptionFailed:
@@ -26,6 +29,7 @@ enum PDFToolsError: LocalizedError {
 final class PDFToolsService {
 
     enum CompressionQuality: String, CaseIterable, Identifiable {
+        case lossless
         case balanced
         case aggressive
 
@@ -33,6 +37,7 @@ final class PDFToolsService {
 
         var title: String {
             switch self {
+            case .lossless: return "Kayıpsız"
             case .balanced: return "Dengeli"
             case .aggressive: return "Maksimum Sıkıştırma"
             }
@@ -40,23 +45,23 @@ final class PDFToolsService {
 
         var subtitle: String {
             switch self {
-            case .balanced: return "İyi görüntü kalitesi, orta boyut"
-            case .aggressive: return "Düşük boyut, azalan görüntü kalitesi"
+            case .lossless: return "Metin araması korunur, yalnızca gömülü görseller optimize edilir"
+            case .balanced: return "İyi görüntü kalitesi, orta boyut — metin araması kaybolur"
+            case .aggressive: return "Düşük boyut, azalan görüntü kalitesi — metin araması kaybolur"
             }
         }
 
-        var jpegQuality: CGFloat {
-            switch self {
-            case .balanced: return 0.6
-            case .aggressive: return 0.35
-            }
-        }
+        /// Metin katmanının korunup korunmadığı. Kayıplı modlarda sayfalar bitmap'e çevrilir.
+        var preservesText: Bool { rasterization == nil }
 
-        /// Sayfa bitmap'inin nokta boyutuna uygulanan ölçek (150 / 110 dpi'a karşılık gelir).
-        var renderScale: CGFloat {
+        /// Kayıplı modlarda sayfa bitmap'ine uygulanan parametreler.
+        /// `renderScale` sayfanın nokta boyutuna uygulanır (150 / 110 dpi'a karşılık gelir).
+        /// Kayıpsız modda `nil` — sayfalar hiç yeniden çizilmez.
+        var rasterization: (jpegQuality: CGFloat, renderScale: CGFloat)? {
             switch self {
-            case .balanced: return 150.0 / 72.0
-            case .aggressive: return 110.0 / 72.0
+            case .lossless: return nil
+            case .balanced: return (0.6, 150.0 / 72.0)
+            case .aggressive: return (0.35, 110.0 / 72.0)
             }
         }
     }
@@ -65,12 +70,12 @@ final class PDFToolsService {
         let outputURL: URL
         let originalBytes: Int64
         let compressedBytes: Int64
+        let preservedText: Bool
     }
 
-    /// Her sayfayı bitmap'e çevirip JPEG olarak yeni bir PDF'e yazar.
-    /// Metin katmanı kaybolur — taranmış/büyük PDF'ler için uygundur.
     static func compress(url: URL, quality: CompressionQuality) throws -> CompressionResult {
         guard let document = PDFDocument(url: url) else { throw PDFToolsError.cannotOpen }
+        guard !document.isLocked else { throw PDFToolsError.locked }
         guard document.pageCount > 0 else { throw PDFToolsError.compressionFailed }
 
         let originalBytes = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
@@ -79,6 +84,43 @@ final class PDFToolsService {
             .appendingPathComponent("Sikistirilmis_\(url.deletingPathExtension().lastPathComponent)")
             .appendingPathExtension("pdf")
 
+        if let raster = quality.rasterization {
+            try rasterize(document: document, to: outputURL, raster: raster)
+        } else {
+            try rewritePreservingText(document: document, to: outputURL)
+        }
+
+        let compressedBytes = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
+        guard compressedBytes > 0 else { throw PDFToolsError.compressionFailed }
+
+        return CompressionResult(
+            outputURL: outputURL,
+            originalBytes: originalBytes,
+            compressedBytes: compressedBytes,
+            preservedText: quality.preservesText
+        )
+    }
+
+    /// Kayıpsız yol: belgeyi yeniden yazar. Metin ve vektör içerik olduğu gibi taşınır;
+    /// yalnızca gömülü görseller JPEG olarak yeniden kodlanıp ekran çözünürlüğüne indirgenir.
+    /// Kullanılmayan nesneler ve şişmiş çapraz referans tabloları da bu sırada temizlenir.
+    private static func rewritePreservingText(document: PDFDocument, to outputURL: URL) throws {
+        let options: [PDFDocumentWriteOption: Any] = [
+            .saveImagesAsJPEGOption: true,
+            .optimizeImagesForScreenOption: true
+        ]
+        guard document.write(to: outputURL, withOptions: options) else {
+            throw PDFToolsError.compressionFailed
+        }
+    }
+
+    /// Kayıplı yol: her sayfayı bitmap'e çevirip JPEG olarak yeni bir PDF'e yazar.
+    /// Metin katmanı kaybolur — taranmış/büyük PDF'ler için uygundur.
+    private static func rasterize(
+        document: PDFDocument,
+        to outputURL: URL,
+        raster: (jpegQuality: CGFloat, renderScale: CGFloat)
+    ) throws {
         let firstPageBounds = document.page(at: 0)?.bounds(for: .mediaBox) ?? CGRect(x: 0, y: 0, width: 595, height: 842)
         let format = UIGraphicsPDFRendererFormat()
         let renderer = UIGraphicsPDFRenderer(bounds: firstPageBounds, format: format)
@@ -89,28 +131,19 @@ final class PDFToolsService {
                 let bounds = page.bounds(for: .mediaBox)
 
                 let renderSize = CGSize(
-                    width: bounds.width * quality.renderScale,
-                    height: bounds.height * quality.renderScale
+                    width: bounds.width * raster.renderScale,
+                    height: bounds.height * raster.renderScale
                 )
                 let bitmap = page.thumbnail(of: renderSize, for: .mediaBox)
 
                 // JPEG'e çevirip geri yükleyerek sayfayı sıkıştırılmış görüntü olarak göm.
-                guard let jpegData = bitmap.jpegData(compressionQuality: quality.jpegQuality),
+                guard let jpegData = bitmap.jpegData(compressionQuality: raster.jpegQuality),
                       let compressedImage = UIImage(data: jpegData) else { continue }
 
                 context.beginPage(withBounds: CGRect(origin: .zero, size: bounds.size), pageInfo: [:])
                 compressedImage.draw(in: CGRect(origin: .zero, size: bounds.size))
             }
         }
-
-        let compressedBytes = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
-        guard compressedBytes > 0 else { throw PDFToolsError.compressionFailed }
-
-        return CompressionResult(
-            outputURL: outputURL,
-            originalBytes: originalBytes,
-            compressedBytes: compressedBytes
-        )
     }
 
     /// PDF'i kullanıcı parolasıyla şifreler (açarken parola sorulur).
