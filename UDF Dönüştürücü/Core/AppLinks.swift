@@ -14,4 +14,5 @@ enum AppLinks {
 
     /// Destek sayfası — App Store Connect > Support URL ile aynı.
     static let support = URL(string: "https://velikececi.com/udfdonusturucu/destek.html")!
+
 }

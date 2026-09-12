@@ -7,6 +7,16 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// AnalyticsService.swift'teki "GoogleService-Info.plist bundle'da yoksa FirebaseApp.configure()
+// çağrılmaz" davranışının Android karşılığı: google-services plugin'i `google-services.json`
+// yoksa build'i (defaultConfig'e google_app_id/google_api_key string kaynağı üretemediği için)
+// patlatır — bu yüzden yalnızca dosya gerçekten varsa uygulanır. Dependency (aşağıda) koşulsuzdur;
+// FirebaseApp.getApps() boş kalır ve analytics/Analytics.kt no-op'a düşer.
+val hasFirebaseConfig = project.file("google-services.json").exists()
+if (hasFirebaseConfig) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Yayın imzalama bilgileri gizli tutulur: `android/keystore.properties` (.gitignore'da) varsa
 // oradan okunur; yoksa release derlemesi (CI/lokal test için) debug imzasına düşer — gerçek Play
 // Store yüklemesi öncesi bu dosya `keytool` ile üretilmiş gerçek bir keystore'a işaret etmeli.
@@ -32,6 +42,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         resourceConfigurations += setOf("tr")
+
+        buildConfigField("boolean", "HAS_FIREBASE", hasFirebaseConfig.toString())
 
         // Uygulama tamamen Türkçe; gereksiz dil kaynaklarının (kütüphanelerden gelen) APK/AAB'ye
         // dahil edilmesini önler.
@@ -115,6 +127,13 @@ dependencies {
     implementation(libs.user.messaging.platform)
     implementation(libs.billing.ktx)
     implementation(libs.pdfbox.android)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.play.review.ktx)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

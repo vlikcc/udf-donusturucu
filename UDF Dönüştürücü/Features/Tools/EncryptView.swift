@@ -11,6 +11,18 @@ struct EncryptView: View {
     @State private var errorMessage: String?
     @State private var shareURL: URL?
 
+    private var fileExtension: String {
+        selectedFile?.pathExtension.lowercased() ?? ""
+    }
+
+    private var isUDFInput: Bool {
+        fileExtension == "udf" || fileExtension == "udfenc"
+    }
+
+    private var isEncryptedInput: Bool {
+        fileExtension == "udfenc"
+    }
+
     private var passwordsValid: Bool {
         password.count >= 4 && password == passwordConfirm
     }
@@ -18,14 +30,17 @@ struct EncryptView: View {
     var body: some View {
         List {
             Section {
-                Button {
-                    showPicker = true
-                } label: {
-                    Label(selectedFile?.lastPathComponent ?? "PDF Seç", systemImage: "doc.richtext.fill")
-                        .lineLimit(1)
+                Button { showPicker = true } label: {
+                    Label(
+                        selectedFile?.lastPathComponent ?? "PDF veya UDF Seç",
+                        systemImage: isUDFInput ? "doc.fill" : "doc.richtext.fill"
+                    )
+                    .lineLimit(1)
                 }
             } footer: {
-                Text("Şifrelenen PDF, yalnızca belirlediğiniz parola girilerek açılabilir. Parolayı unutursanız dosya kurtarılamaz.")
+                Text(isUDFInput
+                     ? "UDF şifreleme uygulamaya özel .udfenc dosyası oluşturur. Şifreli dosyayı UYAP'ta kullanmadan önce bu ekrandan çözmeniz gerekir."
+                     : "Şifrelenen PDF yalnızca belirlediğiniz parola girilerek açılabilir. Parolayı unutursanız dosya kurtarılamaz.")
             }
 
             if selectedFile != nil {
@@ -41,17 +56,18 @@ struct EncryptView: View {
                 }
 
                 Section {
-                    Button {
-                        encrypt()
-                    } label: {
+                    Button { process() } label: {
                         if isWorking {
                             HStack {
                                 ProgressView()
-                                Text("Şifreleniyor...")
+                                Text(isEncryptedInput ? "UDF açılıyor..." : "Şifreleniyor...")
                             }
                         } else {
-                            Label("Şifrele", systemImage: "lock.doc.fill")
-                                .bold()
+                            Label(
+                                isEncryptedInput ? "UDF'nin Şifresini Çöz" : (isUDFInput ? "UDF'yi Şifrele" : "PDF'yi Şifrele"),
+                                systemImage: isEncryptedInput ? "lock.open.fill" : "lock.doc.fill"
+                            )
+                            .bold()
                         }
                     }
                     .disabled(!passwordsValid || isWorking)
@@ -63,7 +79,6 @@ struct EncryptView: View {
                     Label(resultURL.lastPathComponent, systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                         .font(.subheadline)
-
                     Button { shareURL = resultURL } label: {
                         Label("Paylaş", systemImage: "square.and.arrow.up")
                     }
@@ -78,13 +93,20 @@ struct EncryptView: View {
                 }
             }
         }
-        .navigationTitle("PDF Şifreleme")
+        .navigationTitle("PDF / UDF Şifreleme")
         .sheet(isPresented: $showPicker) {
-            ToolDocumentPicker(types: [.pdf]) { urls in
-                if let first = urls.first {
-                    selectedFile = first
-                    resultURL = nil
-                    errorMessage = nil
+            ToolDocumentPicker(types: [.pdf] + UTType.udfPickerTypes) { urls in
+                if let url = urls.first {
+                    let ext = url.pathExtension.lowercased()
+                    if ["pdf", "udf", "udfenc"].contains(ext) {
+                        selectedFile = url
+                        resultURL = nil
+                        errorMessage = nil
+                        password = ""
+                        passwordConfirm = ""
+                    } else {
+                        errorMessage = "Lütfen bir PDF, UDF veya UDFENC dosyası seçin."
+                    }
                 }
                 showPicker = false
             }
@@ -94,7 +116,7 @@ struct EncryptView: View {
         }
     }
 
-    private func encrypt() {
+    private func process() {
         guard let file = selectedFile else { return }
         isWorking = true
         errorMessage = nil
@@ -103,14 +125,22 @@ struct EncryptView: View {
 
         Task {
             do {
-                let output = try PDFToolsService.encrypt(url: file, password: filePassword)
+                let output: URL
+                if isEncryptedInput {
+                    output = try UDFToolsService.decrypt(url: file, password: filePassword)
+                } else if isUDFInput {
+                    output = try UDFToolsService.encrypt(url: file, password: filePassword)
+                } else {
+                    output = try PDFToolsService.encrypt(url: file, password: filePassword)
+                }
+
                 await MainActor.run {
                     resultURL = output
                     isWorking = false
                     ConversionStorage.shared.addRecord(
                         ConversionRecord(
                             originalFileName: output.lastPathComponent,
-                            outputFormat: "PDF",
+                            outputFormat: output.pathExtension.uppercased(),
                             success: true,
                             outputPath: output.path
                         )

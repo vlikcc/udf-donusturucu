@@ -19,8 +19,8 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .merge: return "Belge Birleştirme"
         case .split: return "Belge Bölme"
-        case .compress: return "PDF Sıkıştırma"
-        case .encrypt: return "PDF Şifreleme"
+        case .compress: return "PDF / UDF Sıkıştırma"
+        case .encrypt: return "PDF / UDF Şifreleme"
         case .editor: return "UDF Düzenleme"
         case .ocr: return "Metin Tanıma (OCR)"
         case .signature: return "E-İmza Bilgisi"
@@ -30,10 +30,10 @@ enum ProTool: String, CaseIterable, Identifiable, Hashable {
 
     var subtitle: String {
         switch self {
-        case .merge: return "Birden fazla UDF/PDF'i tek PDF yapın"
+        case .merge: return "UDF'leri UDF, PDF'leri PDF olarak birleştirin"
         case .split: return "Sayfa aralığı çıkarın veya sayfalara ayırın"
-        case .compress: return "Büyük PDF'lerin boyutunu küçültün"
-        case .encrypt: return "PDF'e parola koruması ekleyin"
+        case .compress: return "PDF veya UDF dosyasının boyutunu küçültün"
+        case .encrypt: return "PDF'e veya UDF'ye parola koruması ekleyin"
         case .editor: return "Metin, tablo, renk ve UYAP alanları"
         case .ocr: return "Taranmış belgeden metin çıkarın"
         case .signature: return "İmzalı UDF'te imzacıyı görün"

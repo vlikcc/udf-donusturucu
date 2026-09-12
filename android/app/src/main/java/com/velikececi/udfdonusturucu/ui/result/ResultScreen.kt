@@ -51,8 +51,11 @@ private const val DOCX_MIME = "application/vnd.openxmlformats-officedocument.wor
 /**
  * ResultView.swift karşılığı. Her dosya için başarı/başarısızlık durumu, paylaş
  * ([ShareUtils]/`ACTION_SEND`) ve cihaza kaydet (`CreateDocument`) aksiyonları gösterilir.
- * Ekran açıldığında [com.velikececi.udfdonusturucu.ads.AdsManager.showInterstitialIfDue]
- * çağrılır (her 2. sonuç ekranında bir geçişli reklam — iOS `AdsManager` ile aynı sıklık kuralı).
+ *
+ * Ekran açıldığında, kullanıcı az önce son ücretsiz hakkını kullandıysa (`remaining == 0` ve
+ * premium değil) iOS'taki gibi geçişli reklam yerine paywall gösterilir (kaynak `result_limit`)
+ * — aynı anda iki tam ekran sunumunu önlemek için. Aksi halde her 2. sonuç ekranında bir
+ * geçişli reklam gösterilir ([com.velikececi.udfdonusturucu.ads.AdsManager.showInterstitialIfDue]).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +63,7 @@ fun ResultScreen(
     container: AppContainer,
     flowViewModel: ConversionFlowViewModel,
     onDone: () -> Unit,
+    onNavigatePaywall: (source: String) -> Unit = {},
     onOpenPreview: (File) -> Unit = {},
 ) {
     val state by flowViewModel.state.collectAsState()
@@ -67,8 +71,17 @@ fun ResultScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        val activity = context.findActivity() ?: return@LaunchedEffect
-        container.adsManager.showInterstitialIfDue(activity)
+        // iOS ResultView.onAppear: count = sonuç sayısı, direction her zaman "result" sabiti
+        // (iOS tarafındaki bilinen bir tuhaflık — birebir paritede korunuyor).
+        container.analytics.conversionCompleted(count = state.outcomes.size, direction = "result")
+
+        val limitState = container.limitRepository.state.value
+        if (!limitState.isPremium && limitState.remainingConversions <= 0) {
+            onNavigatePaywall("result_limit")
+        } else {
+            val activity = context.findActivity() ?: return@LaunchedEffect
+            container.adsManager.showInterstitialIfDue(activity)
+        }
     }
 
     var pendingSaveFile by remember { mutableStateOf<File?>(null) }

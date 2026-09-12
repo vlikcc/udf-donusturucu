@@ -14,8 +14,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * LimitService.swift'in Kotlin karşılığı. Günlük 3 ücretsiz dönüşüm hakkı, ödüllü reklamla
- * kazanılan bonus haklar ve premium durumu DataStore üzerinden yönetir.
+ * LimitService.swift'in Kotlin karşılığı. Günlük 1 ücretsiz dönüşüm hakkı, ödüllü reklamla
+ * kazanılan (günde en fazla 2) bonus haklar ve premium durumu DataStore üzerinden yönetir.
  *
  * Gece yarısı sıfırlama iOS'taki `resetIfNewDay()` ile birebir aynı mantıkla çalışır:
  * `bugünEpochGün > sonSıfırlamaEpochGünü` ise sayaçlar sıfırlanır. Kontrol+düşüm işlemi
@@ -26,7 +26,8 @@ class LimitRepository(
     externalScope: CoroutineScope,
 ) {
     companion object {
-        const val MAX_FREE_CONVERSIONS = 3
+        const val MAX_FREE_CONVERSIONS = 1
+        const val MAX_BONUS_CONVERSIONS = 2
 
         private val DAILY_COUNT_KEY = intPreferencesKey("dailyConversionCount")
         private val LAST_RESET_EPOCH_DAY_KEY = longPreferencesKey("lastResetEpochDay")
@@ -38,8 +39,10 @@ class LimitRepository(
         val isPremium: Boolean = false,
         val remainingConversions: Int = MAX_FREE_CONVERSIONS,
         val totalAllowedConversions: Int = MAX_FREE_CONVERSIONS,
+        val bonusConversions: Int = 0,
     ) {
         val canConvert: Boolean get() = isPremium || remainingConversions > 0
+        val canEarnBonusConversion: Boolean get() = !isPremium && bonusConversions < MAX_BONUS_CONVERSIONS
     }
 
     private val _state = MutableStateFlow(LimitState())
@@ -49,7 +52,7 @@ class LimitRepository(
         context.appDataStore.data
             .onEach { prefs ->
                 val isPremium = prefs[PREMIUM_KEY] ?: false
-                val bonus = prefs[BONUS_KEY] ?: 0
+                val bonus = (prefs[BONUS_KEY] ?: 0).coerceAtMost(MAX_BONUS_CONVERSIONS)
                 val totalAllowed = MAX_FREE_CONVERSIONS + bonus
                 val remaining = if (isPremium) {
                     Int.MAX_VALUE
@@ -61,6 +64,7 @@ class LimitRepository(
                     isPremium = isPremium,
                     remainingConversions = remaining,
                     totalAllowedConversions = totalAllowed,
+                    bonusConversions = bonus,
                 )
             }
             .launchIn(externalScope)
@@ -95,7 +99,7 @@ class LimitRepository(
 
             val todayEpochDay = LocalDate.now().toEpochDay()
             var used = prefs[DAILY_COUNT_KEY] ?: 0
-            var bonus = prefs[BONUS_KEY] ?: 0
+            var bonus = (prefs[BONUS_KEY] ?: 0).coerceAtMost(MAX_BONUS_CONVERSIONS)
             val lastReset = prefs[LAST_RESET_EPOCH_DAY_KEY]
             if (lastReset == null || todayEpochDay > lastReset) {
                 used = 0
@@ -118,11 +122,11 @@ class LimitRepository(
         return success
     }
 
-    /** Ödüllü reklam izlendiğinde çağrılır: +[count] bonus dönüşüm hakkı ekler. */
+    /** Ödüllü reklam izlendiğinde çağrılır: +[count] bonus dönüşüm hakkı ekler (günde en fazla [MAX_BONUS_CONVERSIONS]). */
     suspend fun addBonusConversions(count: Int) {
         context.appDataStore.edit { prefs ->
             val current = prefs[BONUS_KEY] ?: 0
-            prefs[BONUS_KEY] = current + count
+            prefs[BONUS_KEY] = (current + count).coerceAtMost(MAX_BONUS_CONVERSIONS)
         }
     }
 

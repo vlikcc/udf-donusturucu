@@ -16,6 +16,9 @@ android/**/build/
 *.jks
 *.keystore
 
+# Firebase yapılandırması — Firebase Console'dan indirilir, gizli proje bilgisi içerir
+android/app/google-services.json
+
 # Claude Code oturum verisi
 .claude/
 

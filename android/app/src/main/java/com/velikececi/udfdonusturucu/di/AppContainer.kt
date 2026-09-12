@@ -2,9 +2,12 @@ package com.velikececi.udfdonusturucu.di
 
 import android.content.Context
 import com.velikececi.udfdonusturucu.ads.AdsManager
+import com.velikececi.udfdonusturucu.analytics.AnalyticsEvents
+import com.velikececi.udfdonusturucu.analytics.createAnalytics
 import com.velikececi.udfdonusturucu.billing.BillingManager
 import com.velikececi.udfdonusturucu.data.ConversionRepository
 import com.velikececi.udfdonusturucu.data.HistoryRepository
+import com.velikececi.udfdonusturucu.data.IncomingFileRepository
 import com.velikececi.udfdonusturucu.data.LimitRepository
 import com.velikececi.udfdonusturucu.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +24,9 @@ class AppContainer(context: Context) {
     val limitRepository = LimitRepository(context, applicationScope)
     val historyRepository = HistoryRepository(context, applicationScope)
     val conversionRepository = ConversionRepository(context, limitRepository, historyRepository)
+    val incomingFileRepository = IncomingFileRepository()
+    val analytics = AnalyticsEvents(createAnalytics(context))
 
     val billingManager = BillingManager(context, limitRepository, applicationScope)
-    val adsManager = AdsManager(context, limitRepository, settingsRepository, applicationScope)
+    val adsManager = AdsManager(context, limitRepository, settingsRepository, applicationScope, analytics)
 }

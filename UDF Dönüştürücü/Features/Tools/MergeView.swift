@@ -10,6 +10,10 @@ struct MergeView: View {
     @State private var shareURL: URL?
     @State private var previewURL: URL?
 
+    private var containsOnlyUDF: Bool {
+        !files.isEmpty && files.allSatisfy { $0.pathExtension.lowercased() == "udf" }
+    }
+
     var body: some View {
         List {
             Section {
@@ -53,7 +57,7 @@ struct MergeView: View {
                                 Text("Birleştiriliyor...")
                             }
                         } else {
-                            Label("Birleştir", systemImage: "doc.on.doc.fill")
+                            Label(containsOnlyUDF ? "UDF'leri Birleştir" : "PDF'e Birleştir", systemImage: "doc.on.doc.fill")
                                 .bold()
                         }
                     }
@@ -110,14 +114,19 @@ struct MergeView: View {
 
         Task {
             do {
-                let output = try MergeService.merge(urls: inputs)
+                let output: URL
+                if inputs.allSatisfy({ $0.pathExtension.lowercased() == "udf" }) {
+                    output = try UDFToolsService.merge(urls: inputs)
+                } else {
+                    output = try MergeService.merge(urls: inputs)
+                }
                 await MainActor.run {
                     resultURL = output
                     isWorking = false
                     ConversionStorage.shared.addRecord(
                         ConversionRecord(
                             originalFileName: output.lastPathComponent,
-                            outputFormat: "PDF",
+                            outputFormat: output.pathExtension.uppercased(),
                             success: true,
                             outputPath: output.path
                         )

@@ -13,6 +13,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.velikececi.udfdonusturucu.BuildConfig
+import com.velikececi.udfdonusturucu.analytics.AnalyticsEvents
 import com.velikececi.udfdonusturucu.data.LimitRepository
 import com.velikececi.udfdonusturucu.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +38,7 @@ class AdsManager(
     private val limitRepository: LimitRepository,
     private val settingsRepository: SettingsRepository,
     private val externalScope: CoroutineScope,
+    private val analytics: AnalyticsEvents,
 ) {
     companion object {
         private const val TAG = "AdsManager"
@@ -163,6 +165,7 @@ class AdsManager(
         ad.show(activity) {
             externalScope.launch {
                 limitRepository.addBonusConversions(1)
+                analytics.rewardedAdWatched()
                 onReward()
             }
         }

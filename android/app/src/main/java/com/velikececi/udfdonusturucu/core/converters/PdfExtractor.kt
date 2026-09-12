@@ -8,7 +8,6 @@ import com.tom_roush.pdfbox.cos.COSNumber
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
-import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.velikececi.udfdonusturucu.core.model.ExtractedContent
 import com.velikececi.udfdonusturucu.core.model.ExtractedParagraph
 import com.velikececi.udfdonusturucu.core.model.ExtractedTextRun
@@ -38,11 +37,8 @@ import java.io.IOException
  */
 object PdfExtractor {
 
-    @Volatile
-    private var resourceLoaderInitialized = false
-
     fun extract(file: File, context: Context): ExtractedContent {
-        ensureResourceLoaderInitialized(context)
+        PdfBoxInit.ensure(context)
 
         val document = try {
             PDDocument.load(file)
@@ -61,16 +57,6 @@ object PdfExtractor {
             return ExtractedContent(plainText = plainText, paragraphs = paragraphs)
         } finally {
             document.close()
-        }
-    }
-
-    private fun ensureResourceLoaderInitialized(context: Context) {
-        if (resourceLoaderInitialized) return
-        synchronized(this) {
-            if (!resourceLoaderInitialized) {
-                PDFBoxResourceLoader.init(context.applicationContext)
-                resourceLoaderInitialized = true
-            }
         }
     }
 

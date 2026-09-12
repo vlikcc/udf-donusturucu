@@ -1,5 +1,7 @@
 import Foundation
+import ImageIO
 import PDFKit
+import UniformTypeIdentifiers
 import UIKit
 
 enum PDFToolsError: LocalizedError {
@@ -52,16 +54,39 @@ final class PDFToolsService {
         }
 
         /// Metin katmanının korunup korunmadığı. Kayıplı modlarda sayfalar bitmap'e çevrilir.
-        var preservesText: Bool { rasterization == nil }
+        var preservesText: Bool { self == .lossless }
 
         /// Kayıplı modlarda sayfa bitmap'ine uygulanan parametreler.
-        /// `renderScale` sayfanın nokta boyutuna uygulanır (150 / 110 dpi'a karşılık gelir).
-        /// Kayıpsız modda `nil` — sayfalar hiç yeniden çizilmez.
         var rasterization: (jpegQuality: CGFloat, renderScale: CGFloat)? {
             switch self {
             case .lossless: return nil
-            case .balanced: return (0.6, 150.0 / 72.0)
-            case .aggressive: return (0.35, 110.0 / 72.0)
+            case .balanced: return (0.52, 110.0 / 72.0)
+            case .aggressive: return (0.22, 72.0 / 72.0)
+            }
+        }
+
+        /// PDF sayfasının yeniden oluşturulacağı yaklaşık çözünürlüğü temsil eder.
+        var dpi: CGFloat {
+            switch self {
+            case .lossless: return 0
+            case .balanced: return 110
+            case .aggressive: return 72
+            }
+        }
+
+        var jpegQuality: CGFloat {
+            switch self {
+            case .lossless: return 1.0
+            case .balanced: return 0.52
+            case .aggressive: return 0.22
+            }
+        }
+
+        var maximumPixelDimension: CGFloat {
+            switch self {
+            case .lossless: return 2200
+            case .balanced: return 2200
+            case .aggressive: return 1600
             }
         }
     }
@@ -78,20 +103,51 @@ final class PDFToolsService {
         guard !document.isLocked else { throw PDFToolsError.locked }
         guard document.pageCount > 0 else { throw PDFToolsError.compressionFailed }
 
-        let originalBytes = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-
+        let originalBytes = fileSize(at: url)
         let outputURL = PDFConverter.outputDirectory()
             .appendingPathComponent("Sikistirilmis_\(url.deletingPathExtension().lastPathComponent)")
             .appendingPathExtension("pdf")
 
-        if let raster = quality.rasterization {
-            try rasterize(document: document, to: outputURL, raster: raster)
-        } else {
+        try removeExistingOutput(at: outputURL)
+        if quality == .lossless {
             try rewritePreservingText(document: document, to: outputURL)
+        } else {
+            guard let destination = CGImageDestinationCreateWithURL(
+                outputURL as CFURL,
+                UTType.pdf.identifier as CFString,
+                document.pageCount,
+                nil
+            ) else {
+                throw PDFToolsError.compressionFailed
+            }
+
+            for pageIndex in 0..<document.pageCount {
+                guard let page = document.page(at: pageIndex) else { continue }
+                let pageBounds = page.bounds(for: .mediaBox)
+                let image = render(page: page, bounds: pageBounds, quality: quality)
+                let pageOptions: [CFString: Any] = [
+                    kCGImageDestinationLossyCompressionQuality: quality.jpegQuality,
+                    kCGImagePropertyDPIWidth: quality.dpi,
+                    kCGImagePropertyDPIHeight: quality.dpi
+                ]
+                CGImageDestinationAddImage(destination, image, pageOptions as CFDictionary)
+            }
+
+            guard CGImageDestinationFinalize(destination) else {
+                try? removeExistingOutput(at: outputURL)
+                throw PDFToolsError.compressionFailed
+            }
         }
 
-        let compressedBytes = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int64) ?? 0
+        var compressedBytes = fileSize(at: outputURL)
         guard compressedBytes > 0 else { throw PDFToolsError.compressionFailed }
+
+        // Sıkıştırılmış çıktı büyürse kullanıcıya daha büyük bir dosya vermeyiz.
+        if originalBytes > 0, compressedBytes >= originalBytes {
+            try? removeExistingOutput(at: outputURL)
+            try FileManager.default.copyItem(at: url, to: outputURL)
+            compressedBytes = originalBytes
+        }
 
         return CompressionResult(
             outputURL: outputURL,
@@ -101,9 +157,7 @@ final class PDFToolsService {
         )
     }
 
-    /// Kayıpsız yol: belgeyi yeniden yazar. Metin ve vektör içerik olduğu gibi taşınır;
-    /// yalnızca gömülü görseller JPEG olarak yeniden kodlanıp ekran çözünürlüğüne indirgenir.
-    /// Kullanılmayan nesneler ve şişmiş çapraz referans tabloları da bu sırada temizlenir.
+    /// Kayıpsız yol: metin ve vektör içerik korunur, gömülü görseller optimize edilir.
     private static func rewritePreservingText(document: PDFDocument, to outputURL: URL) throws {
         let options: [PDFDocumentWriteOption: Any] = [
             .saveImagesAsJPEGOption: true,
@@ -114,35 +168,48 @@ final class PDFToolsService {
         }
     }
 
-    /// Kayıplı yol: her sayfayı bitmap'e çevirip JPEG olarak yeni bir PDF'e yazar.
-    /// Metin katmanı kaybolur — taranmış/büyük PDF'ler için uygundur.
-    private static func rasterize(
-        document: PDFDocument,
-        to outputURL: URL,
-        raster: (jpegQuality: CGFloat, renderScale: CGFloat)
-    ) throws {
-        let firstPageBounds = document.page(at: 0)?.bounds(for: .mediaBox) ?? CGRect(x: 0, y: 0, width: 595, height: 842)
-        let format = UIGraphicsPDFRendererFormat()
-        let renderer = UIGraphicsPDFRenderer(bounds: firstPageBounds, format: format)
+    /// Kayıplı yol: her sayfayı bitmap'e çevirip JPEG tabanlı yeni PDF oluşturur.
+    private static func render(
+        page: PDFPage,
+        bounds: CGRect,
+        quality: CompressionQuality
+    ) -> CGImage {
+        let longestSide = max(bounds.width, bounds.height)
+        let requestedScale = quality.dpi / 72.0
+        let maxScale = quality.maximumPixelDimension / max(longestSide, 1)
+        let scale = min(requestedScale, maxScale)
+        let pixelSize = CGSize(
+            width: max(1, ceil(bounds.width * scale)),
+            height: max(1, ceil(bounds.height * scale))
+        )
 
-        try renderer.writePDF(to: outputURL) { context in
-            for pageIndex in 0..<document.pageCount {
-                guard let page = document.page(at: pageIndex) else { continue }
-                let bounds = page.bounds(for: .mediaBox)
+        var format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        format.preferredRange = .standard
 
-                let renderSize = CGSize(
-                    width: bounds.width * raster.renderScale,
-                    height: bounds.height * raster.renderScale
-                )
-                let bitmap = page.thumbnail(of: renderSize, for: .mediaBox)
+        let renderer = UIGraphicsImageRenderer(size: pixelSize, format: format)
+        let image = renderer.image { rendererContext in
+            UIColor.white.setFill()
+            rendererContext.fill(CGRect(origin: .zero, size: pixelSize))
+            rendererContext.cgContext.interpolationQuality = quality == .aggressive ? .medium : .high
+            rendererContext.cgContext.saveGState()
+            rendererContext.cgContext.scaleBy(x: scale, y: scale)
+            rendererContext.cgContext.translateBy(x: -bounds.minX, y: -bounds.minY)
+            page.draw(with: .mediaBox, to: rendererContext.cgContext)
+            rendererContext.cgContext.restoreGState()
+        }
 
-                // JPEG'e çevirip geri yükleyerek sayfayı sıkıştırılmış görüntü olarak göm.
-                guard let jpegData = bitmap.jpegData(compressionQuality: raster.jpegQuality),
-                      let compressedImage = UIImage(data: jpegData) else { continue }
+        return image.cgImage ?? UIImage().cgImage!
+    }
 
-                context.beginPage(withBounds: CGRect(origin: .zero, size: bounds.size), pageInfo: [:])
-                compressedImage.draw(in: CGRect(origin: .zero, size: bounds.size))
-            }
+    private static func fileSize(at url: URL) -> Int64 {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+    }
+
+    private static func removeExistingOutput(at url: URL) throws {
+        if FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
         }
     }
 

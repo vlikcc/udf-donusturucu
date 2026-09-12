@@ -193,7 +193,7 @@ final class UDFCreator {
 
     // MARK: - ZIP Builder with Deflate (method 8) — matching UYAP format
 
-    private static func buildZIPArchiveDeflate(entries: [(String, Data)]) -> Data {
+    static func buildZIPArchiveDeflate(entries: [(String, Data)]) -> Data {
         var zipData = Data()
 
         struct LocalEntry {

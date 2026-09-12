@@ -210,6 +210,68 @@ final class PurchaseService: ObservableObject {
         }
     }
 
+    /// Apple'ın StoreKit redemption ekranını aktif uygulama penceresinde açar.
+    /// SwiftUI modifier'ı yerine doğrudan StoreKit API'sini kullanmak, özellikle paywall
+    /// başka bir sheet içinde sunulurken redemption ekranının doğru UIWindowScene'e
+    /// bağlanmasını garanti eder.
+    @MainActor
+    func redeemOfferCode(source: String) async {
+        AnalyticsService.logOfferCodeRedemptionStarted(source: source)
+
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })
+                ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
+            purchaseState = .failed("Promosyon ekranı açılamadı. Lütfen tekrar deneyin.")
+            return
+        }
+
+        do {
+            try await AppStore.presentOfferCodeRedeemSheet(in: scene)
+            await handleOfferCodeRedemption(.success(()), source: source)
+        } catch {
+            await handleOfferCodeRedemption(.failure(error), source: source)
+        }
+    }
+
+    /// SwiftUI offer-code sheet tamamlandığında çağrılır. StoreKit'in transaction'ı
+    /// `Transaction.updates` üzerinden teslim etmesini bekler ve entitlement'ı tekrar tarar.
+    @MainActor
+    func handleOfferCodeRedemption(_ result: Result<Void, Error>, source: String) async {
+        switch result {
+        case .success:
+            AnalyticsService.logOfferCodeRedemptionCompleted(source: source)
+            purchaseState = .loading
+
+            // Redemption sheet'in başarılı olması transaction'ın updates akışına aynı anda
+            // ulaşacağını garanti etmez; kısa bir pencere boyunca entitlement'ı yeniden kontrol et.
+            for _ in 0..<8 {
+                if await checkEntitlements() {
+                    purchaseState = .purchased
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+
+            // Transaction daha sonra updates üzerinden gelirse listener premium'u yine etkinleştirir.
+            purchaseState = .idle
+
+        case .failure(let error):
+            if let storeKitError = error as? StoreKitError,
+               case .userCancelled = storeKitError {
+                purchaseState = .idle
+                return
+            }
+
+            logger.error("Offer code redemption başarısız: \(error.localizedDescription)")
+            AnalyticsService.logOfferCodeRedemptionFailed(
+                reason: String(describing: error),
+                source: source
+            )
+            purchaseState = .failed("Promosyon kodu kullanılamadı. Lütfen kodu kontrol edip tekrar deneyin.")
+        }
+    }
+
     /// Lifetime satın alma VEYA aktif bir abonelik varsa premium'u etkinleştirir.
     /// İkisi de yoksa (örn. abonelik süresi dolmuş/iptal edilmiş) premium'u düşürür.
     @MainActor

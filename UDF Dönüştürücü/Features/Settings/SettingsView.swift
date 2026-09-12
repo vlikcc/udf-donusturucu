@@ -29,6 +29,13 @@ struct SettingsView: View {
                     } label: {
                         Label("Premium'a Yükselt", systemImage: "star.fill")
                     }
+
+                    Button {
+                        Task { await purchaseService.redeemOfferCode(source: "settings") }
+                    } label: {
+                        Label("Promosyon kodu kullan", systemImage: "ticket.fill")
+                    }
+
                 }
             }
 

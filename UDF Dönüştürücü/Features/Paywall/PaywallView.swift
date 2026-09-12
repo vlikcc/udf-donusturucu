@@ -343,8 +343,6 @@ struct PaywallView: View {
                     Task { await purchaseService.restorePurchases() }
                 }
 
-                Text("•").foregroundStyle(.tertiary)
-
                 Button("Koşullar") { showTerms = true }
 
                 Text("•").foregroundStyle(.tertiary)

@@ -33,6 +33,18 @@ enum AnalyticsService {
         log("restore_completed", params: ["found": found])
     }
 
+    static func logOfferCodeRedemptionStarted(source: String) {
+        log("offer_code_redemption_started", params: ["source": source])
+    }
+
+    static func logOfferCodeRedemptionCompleted(source: String) {
+        log("offer_code_redemption_completed", params: ["source": source])
+    }
+
+    static func logOfferCodeRedemptionFailed(reason: String, source: String) {
+        log("offer_code_redemption_failed", params: ["reason": reason, "source": source])
+    }
+
     static func logLimitHit() {
         log("limit_hit", params: nil)
     }

@@ -14,6 +14,7 @@ data class MainUiState(
     val isPremium: Boolean = false,
     val remainingConversions: Int = LimitRepository.MAX_FREE_CONVERSIONS,
     val totalAllowedConversions: Int = LimitRepository.MAX_FREE_CONVERSIONS,
+    val canEarnBonusConversion: Boolean = false,
     val recentConversions: List<ConversionRecord> = emptyList(),
 ) {
     val canConvert: Boolean get() = isPremium || remainingConversions > 0
@@ -37,6 +38,7 @@ class MainViewModel(
             isPremium = limitState.isPremium,
             remainingConversions = limitState.remainingConversions,
             totalAllowedConversions = limitState.totalAllowedConversions,
+            canEarnBonusConversion = limitState.canEarnBonusConversion,
             recentConversions = historyRepository.availableRecords(limitState.isPremium).take(5),
         )
     }.stateIn(

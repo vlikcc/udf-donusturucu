@@ -1,31 +1,42 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct CompressionDisplayResult {
+    let outputURL: URL
+    let originalBytes: Int64
+    let compressedBytes: Int64
+    let preservedText: Bool
+}
+
 struct CompressView: View {
     @State private var selectedFile: URL?
     @State private var quality: PDFToolsService.CompressionQuality = .lossless
     @State private var showPicker = false
     @State private var isWorking = false
-    @State private var result: PDFToolsService.CompressionResult?
+    @State private var result: CompressionDisplayResult?
     @State private var errorMessage: String?
     @State private var shareURL: URL?
     @State private var previewURL: URL?
 
+    private var isUDF: Bool {
+        selectedFile?.pathExtension.lowercased() == "udf"
+    }
+
     var body: some View {
         List {
             Section {
-                Button {
-                    showPicker = true
-                } label: {
-                    Label(selectedFile?.lastPathComponent ?? "PDF Seç", systemImage: "doc.richtext.fill")
+                Button { showPicker = true } label: {
+                    Label(selectedFile?.lastPathComponent ?? "PDF veya UDF Seç", systemImage: isUDF ? "doc.fill" : "doc.richtext.fill")
                         .lineLimit(1)
                 }
             } footer: {
-                Text("Kayıpsız mod metin aramasını korur — UYAP'a gidecek belgelerde bunu seçin. Diğer modlar sayfaları görüntüye çevirir; dosya belirgin küçülür ama metin araması kaybolur, taranmış belgeler için uygundur.")
+                Text(isUDF
+                     ? "UDF arşivindeki XML ve diğer girdiler yeniden sıkıştırılır; belge yapısı korunur."
+                     : "Kayıpsız mod metin aramasını korur ve gömülü görselleri optimize eder. Dengeli ve maksimum modlar sayfaları görüntüye çevirir; dosya belirgin küçülür ancak metin araması kaybolur.")
             }
 
-            if selectedFile != nil {
-                Section("Sıkıştırma Düzeyi") {
+            if selectedFile != nil && !isUDF {
+                Section("PDF Sıkıştırma Düzeyi") {
                     ForEach(PDFToolsService.CompressionQuality.allCases) { option in
                         Button {
                             quality = option
@@ -46,18 +57,18 @@ struct CompressView: View {
                         }
                     }
                 }
+            }
 
+            if selectedFile != nil {
                 Section {
-                    Button {
-                        compress()
-                    } label: {
+                    Button { compress() } label: {
                         if isWorking {
                             HStack {
                                 ProgressView()
-                                Text("Sıkıştırılıyor...")
+                                Text(isUDF ? "UDF sıkıştırılıyor..." : "PDF sıkıştırılıyor...")
                             }
                         } else {
-                            Label("Sıkıştır", systemImage: "arrow.down.right.and.arrow.up.left")
+                            Label(isUDF ? "UDF'yi Sıkıştır" : "PDF'yi Sıkıştır", systemImage: "arrow.down.right.and.arrow.up.left")
                                 .bold()
                         }
                     }
@@ -67,19 +78,9 @@ struct CompressView: View {
 
             if let result {
                 Section("Sonuç") {
-                    HStack {
-                        Text("Önce")
-                        Spacer()
-                        Text(ByteCountFormatter.string(fromByteCount: result.originalBytes, countStyle: .file))
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("Sonra")
-                        Spacer()
-                        Text(ByteCountFormatter.string(fromByteCount: result.compressedBytes, countStyle: .file))
-                            .foregroundStyle(result.compressedBytes < result.originalBytes ? .green : .orange)
-                            .bold()
-                    }
+                    fileSizeRow(title: "Önce", bytes: result.originalBytes)
+                    fileSizeRow(title: "Sonra", bytes: result.compressedBytes)
+
                     if result.originalBytes > 0 {
                         let ratio = 100 - Int(Double(result.compressedBytes) / Double(result.originalBytes) * 100)
                         Text(ratio > 0 ? "%\(ratio) küçüldü" : "Bu dosya daha fazla küçültülemedi.")
@@ -120,13 +121,18 @@ struct CompressView: View {
                 }
             }
         }
-        .navigationTitle("PDF Sıkıştırma")
+        .navigationTitle("PDF / UDF Sıkıştırma")
         .sheet(isPresented: $showPicker) {
-            ToolDocumentPicker(types: [.pdf]) { urls in
+            ToolDocumentPicker(types: [.pdf] + UTType.udfPickerTypes) { urls in
                 if let first = urls.first {
-                    selectedFile = first
-                    result = nil
-                    errorMessage = nil
+                    let ext = first.pathExtension.lowercased()
+                    if ext == "pdf" || ext == "udf" {
+                        selectedFile = first
+                        result = nil
+                        errorMessage = nil
+                    } else {
+                        errorMessage = "Lütfen bir PDF veya UDF dosyası seçin."
+                    }
                 }
                 showPicker = false
             }
@@ -139,6 +145,15 @@ struct CompressView: View {
         }
     }
 
+    private func fileSizeRow(title: String, bytes: Int64) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private func compress() {
         guard let file = selectedFile else { return }
         isWorking = true
@@ -148,16 +163,34 @@ struct CompressView: View {
 
         Task {
             do {
-                let output = try PDFToolsService.compress(url: file, quality: selectedQuality)
+                let displayResult: CompressionDisplayResult
+                if file.pathExtension.lowercased() == "udf" {
+                    let output = try UDFToolsService.compress(url: file)
+                    displayResult = CompressionDisplayResult(
+                        outputURL: output.outputURL,
+                        originalBytes: output.originalBytes,
+                        compressedBytes: output.compressedBytes,
+                        preservedText: true
+                    )
+                } else {
+                    let output = try PDFToolsService.compress(url: file, quality: selectedQuality)
+                    displayResult = CompressionDisplayResult(
+                        outputURL: output.outputURL,
+                        originalBytes: output.originalBytes,
+                        compressedBytes: output.compressedBytes,
+                        preservedText: output.preservedText
+                    )
+                }
+
                 await MainActor.run {
-                    result = output
+                    result = displayResult
                     isWorking = false
                     ConversionStorage.shared.addRecord(
                         ConversionRecord(
-                            originalFileName: output.outputURL.lastPathComponent,
-                            outputFormat: "PDF",
+                            originalFileName: displayResult.outputURL.lastPathComponent,
+                            outputFormat: displayResult.outputURL.pathExtension.uppercased(),
                             success: true,
-                            outputPath: output.outputURL.path
+                            outputPath: displayResult.outputURL.path
                         )
                     )
                 }

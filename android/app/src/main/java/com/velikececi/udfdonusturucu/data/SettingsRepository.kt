@@ -15,6 +15,7 @@ class SettingsRepository(private val context: Context) {
 
     companion object {
         private val ONBOARDING_DONE_KEY = booleanPreferencesKey("onboardingDone")
+        private val HAS_SEEN_INTRO_PAYWALL_KEY = booleanPreferencesKey("hasSeenIntroPaywall")
         private val INTERSTITIAL_COUNTER_KEY = intPreferencesKey("interstitialCounter")
         const val INTERSTITIAL_FREQUENCY = 2
     }
@@ -24,6 +25,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOnboardingDone() {
         context.appDataStore.edit { prefs -> prefs[ONBOARDING_DONE_KEY] = true }
+    }
+
+    /**
+     * iOS `hasSeenIntroPaywall` karşılığı: onboarding bittikten hemen sonra bir kez gösterilen
+     * tanıtım paywall'ının tekrar gösterilmemesi için kullanılır (yalnızca premium olmayan
+     * kullanıcıya gösterildiğinde set edilir — bkz. AppNavHost).
+     */
+    val hasSeenIntroPaywall: Flow<Boolean> =
+        context.appDataStore.data.map { prefs -> prefs[HAS_SEEN_INTRO_PAYWALL_KEY] ?: false }
+
+    suspend fun setHasSeenIntroPaywall() {
+        context.appDataStore.edit { prefs -> prefs[HAS_SEEN_INTRO_PAYWALL_KEY] = true }
     }
 
     /** Çağrıldığı her seferde sayacı artırır ve interstitial gösterilmesi gerekip gerekmediğini döner. */

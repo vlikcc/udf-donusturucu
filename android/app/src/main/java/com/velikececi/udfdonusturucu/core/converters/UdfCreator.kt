@@ -4,6 +4,8 @@ import android.content.Context
 import com.velikececi.udfdonusturucu.core.model.ConversionException
 import com.velikececi.udfdonusturucu.core.model.ExtractedContent
 import com.velikececi.udfdonusturucu.core.model.ExtractedParagraph
+import com.velikececi.udfdonusturucu.core.tools.editor.UdfEditDocument
+import com.velikececi.udfdonusturucu.core.tools.editor.UdfStructureWriter
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -24,6 +26,47 @@ object UdfCreator {
     fun createFromDocx(file: File, context: Context): File {
         val extracted = DocxExtractor.extract(file)
         return buildUdf(fileName = file.nameWithoutExtension, extracted = extracted, context = context)
+    }
+
+    /**
+     * iOS `UDFCreator.create(fileName:paragraphs:)` karşılığı — hazır paragraf listesinden
+     * doğrudan .udf üretir. OCR dışa aktarımı (Faz 6) ve Dilekçe Şablonları ([TemplateEngine])
+     * tarafından kullanılır.
+     */
+    fun create(fileName: String, paragraphs: List<ExtractedParagraph>, context: Context): File {
+        val extracted = ExtractedContent(
+            plainText = paragraphs.joinToString("\n") { it.text },
+            paragraphs = paragraphs,
+        )
+        return buildUdf(fileName = fileName, extracted = extracted, context = context)
+    }
+
+    /**
+     * iOS `UDFCreator.create(fileName:document:)` karşılığı — zengin düzenleme modelinden
+     * (tablo, UYAP alanı, renk destekli) doğrudan .udf üretir. [com.velikececi.udfdonusturucu.core.tools.editor.UdfEditorService.save]
+     * tarafından kullanılır.
+     */
+    fun create(fileName: String, document: UdfEditDocument, context: Context): File {
+        val built = UdfStructureWriter.build(document)
+        val contentXml = buildContentXmlFromElements(
+            cdataText = built.cdataText,
+            elementsXml = built.elementsXML,
+            headersXml = built.headersXML,
+            footersXml = built.footersXML,
+        )
+        val propertiesXml = buildPropertiesXml()
+        val outputFile = OutputPaths.outputFile(context, fileName, "udf")
+
+        try {
+            ZipOutputStream(outputFile.outputStream()).use { zip ->
+                writeEntry(zip, "content.xml", contentXml)
+                writeEntry(zip, "documentproperties.xml", propertiesXml)
+            }
+        } catch (e: Exception) {
+            throw ConversionException.ExportFailed(e.message ?: "bilinmeyen hata")
+        }
+
+        return outputFile
     }
 
     // MARK: - Build UDF ZIP
@@ -101,6 +144,16 @@ object UdfCreator {
             elementsXml.append("</paragraph>\n")
         }
 
+        return buildContentXmlFromElements(cdataText = cdataText, elementsXml = elementsXml.toString())
+    }
+
+    /** `<template>` / `<properties>` / `<elements>` (+ isteğe bağlı headers/footers) / `<styles>` sarmalayıcısı — paragraf ve zengin düzenleme akışları arasında paylaşılır. */
+    private fun buildContentXmlFromElements(
+        cdataText: String,
+        elementsXml: String,
+        headersXml: String? = null,
+        footersXml: String? = null,
+    ): String {
         val stylesXml = "<styles>" +
             "<style name=\"default\" italic=\"false\" description=\"Geçerli\" size=\"12\" " +
             "RightIndent=\"15.0\" bold=\"false\" family=\"Dialog\" foreground=\"-16777216\" " +
@@ -110,6 +163,10 @@ object UdfCreator {
             "family=\"Times New Roman\" />" +
             "</styles>"
 
+        val sections = StringBuilder("<elements >$elementsXml</elements>\n")
+        if (headersXml != null) sections.append("<headers>$headersXml</headers>\n")
+        if (footersXml != null) sections.append("<footers>$footersXml</footers>\n")
+
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" ?> \n\n" +
             "<template format_id=\"1.8\" >\n" +
             "<content><![CDATA[$cdataText]]></content>" +
@@ -118,7 +175,7 @@ object UdfCreator {
             "topMargin=\"28.34645652770996\" bottomMargin=\"28.34645652770996\" paperOrientation=\"1\" " +
             "headerFOffset=\"15.0\" footerFOffset=\"60.00944846916199\" />" +
             "</properties>\n" +
-            "<elements >$elementsXml</elements>\n" +
+            sections.toString() +
             stylesXml + "\n" +
             "</template>\n"
     }

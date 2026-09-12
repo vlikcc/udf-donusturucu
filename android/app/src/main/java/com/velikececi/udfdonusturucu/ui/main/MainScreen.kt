@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,11 +34,16 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +70,12 @@ private val OTHER_MIME_TYPES = arrayOf(
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 )
 
+/**
+ * ContentView.swift karşılığı. Dosya seçimi her zaman etkindir (premium olmayan kullanıcı da
+ * dosya seçebilir); günlük limit yalnızca "Dönüştür" butonuna basıldığında kontrol edilir —
+ * iOS'taki `guard limitService.canConvert && limitService.useConversion(...)` deseninin aynısı.
+ * Limit dolduğunda [LimitAlertDialog] gösterilir, ekrandan hiç ayrılınmaz.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -71,7 +83,7 @@ fun MainScreen(
     flowViewModel: ConversionFlowViewModel,
     onNavigateHistory: () -> Unit,
     onNavigateSettings: () -> Unit,
-    onNavigatePaywall: () -> Unit,
+    onNavigatePaywall: (source: String) -> Unit,
     onNavigateConversion: () -> Unit,
 ) {
     val viewModel: MainViewModel = viewModel(
@@ -84,6 +96,20 @@ fun MainScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    var showBatchDialog by remember { mutableStateOf(false) }
+    var showLimitDialog by remember { mutableStateOf(false) }
+
+    // IncomingFileRouter.swift'teki ContentView.onChange karşılığı: başka bir uygulamadan
+    // "Birlikte aç" ile gelen .udf her zaman UDF → PDF/Word yönünü seçili hale getirir ve
+    // doğrudan dosya listesine eklenir; tüketildikten sonra tekrar tetiklenmesin diye temizlenir.
+    val incomingFile by container.incomingFileRepository.incoming.collectAsState()
+    LaunchedEffect(incomingFile) {
+        val file = incomingFile ?: return@LaunchedEffect
+        flowViewModel.setDirection(ConversionDirection.UDF_TO_OTHER)
+        flowViewModel.setSelectedFiles(listOf(file))
+        container.incomingFileRepository.consume()
+    }
+
     val pickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
@@ -95,7 +121,15 @@ fun MainScreen(
                 setOf("pdf", "docx")
             }
             val copied = uris.mapNotNull { uri -> FileCopier.copyToCache(context, uri) }
-            val matched = copied.filter { it.extension.lowercase(Locale.ROOT) in expectedExtensions }
+            var matched = copied.filter { it.extension.lowercase(Locale.ROOT) in expectedExtensions }
+
+            // iOS ContentView.addFiles: premium olmayan kullanıcı aynı anda yalnızca 1 dosya
+            // dönüştürebilir — fazlası sessizce düşürülür, "Toplu Dönüştürme" uyarısı gösterilir.
+            if (!uiState.isPremium && matched.size > 1) {
+                matched = matched.take(1)
+                showBatchDialog = true
+            }
+
             flowViewModel.setSelectedFiles(matched)
         }
     }
@@ -140,7 +174,7 @@ fun MainScreen(
                     isPremium = uiState.isPremium,
                     remaining = uiState.remainingConversions,
                     totalAllowed = uiState.totalAllowedConversions,
-                    onUpgradeClick = onNavigatePaywall,
+                    onUpgradeClick = { onNavigatePaywall("limit_card") },
                     onWatchAdClick = {
                         context.findActivity()?.let { activity -> container.adsManager.showRewarded(activity) }
                     },
@@ -156,7 +190,6 @@ fun MainScreen(
                 Button(
                     onClick = { pickerLauncher.launch(mimeTypes) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState.canConvert,
                 ) {
                     Icon(Icons.Filled.UploadFile, contentDescription = null)
                     Text("  Dosya Seç", modifier = Modifier.padding(vertical = 12.dp))
@@ -177,9 +210,15 @@ fun MainScreen(
                 }
                 item {
                     Button(
-                        onClick = onNavigateConversion,
+                        onClick = {
+                            if (uiState.canConvert) {
+                                onNavigateConversion()
+                            } else {
+                                container.analytics.limitHit()
+                                showLimitDialog = true
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = uiState.canConvert,
                     ) {
                         Text("Dönüştür (${flowState.files.size})")
                     }
@@ -218,6 +257,80 @@ fun MainScreen(
             }
         }
     }
+
+    if (showBatchDialog) {
+        AlertDialog(
+            onDismissRequest = { showBatchDialog = false },
+            title = { Text("Toplu Dönüştürme") },
+            text = {
+                Text(
+                    "Aynı anda birden fazla dosya dönüştürme Pro üyelere özeldir. " +
+                        "Ücretsiz sürümde tek dosya seçebilirsiniz.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatchDialog = false
+                    onNavigatePaywall("batch")
+                }) { Text("Pro'ya Yükselt") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDialog = false }) { Text("Tamam") }
+            },
+        )
+    }
+
+    if (showLimitDialog) {
+        LimitAlertDialog(
+            canEarnBonusConversion = uiState.canEarnBonusConversion,
+            onDismiss = { showLimitDialog = false },
+            onUpgrade = {
+                showLimitDialog = false
+                onNavigatePaywall("limit_alert")
+            },
+            onWatchAd = {
+                showLimitDialog = false
+                context.findActivity()?.let { activity -> container.adsManager.showRewarded(activity) }
+            },
+        )
+    }
+}
+
+/** ContentView.swift'teki "Günlük Limit" uyarısının Kotlin karşılığı — 2-3 aksiyonlu. */
+@Composable
+private fun LimitAlertDialog(
+    canEarnBonusConversion: Boolean,
+    onDismiss: () -> Unit,
+    onUpgrade: () -> Unit,
+    onWatchAd: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Günlük Limit") },
+        text = {
+            Text(
+                if (canEarnBonusConversion) {
+                    "Günlük ücretsiz dönüştürme limitinize ulaştınız. Reklam izleyerek +1 çeviri " +
+                        "kazanabilir (günde en fazla 2) veya Premium'a yükselerek sınırsız dönüştürme " +
+                        "yapabilirsiniz."
+                } else {
+                    "Bugünkü ücretsiz dönüştürme ve reklam haklarınız doldu. Premium'a yükselerek " +
+                        "sınırsız dönüştürme yapabilirsiniz."
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onUpgrade) { Text("Premium'a Yükselt") }
+        },
+        dismissButton = {
+            Row {
+                if (canEarnBonusConversion) {
+                    TextButton(onClick = onWatchAd) { Text("Reklam İzle (+1 Çeviri)") }
+                }
+                TextButton(onClick = onDismiss) { Text("Tamam") }
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

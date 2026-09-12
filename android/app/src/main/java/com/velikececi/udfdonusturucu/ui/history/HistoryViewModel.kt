@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 data class HistoryUiState(
     val available: List<ConversionRecord> = emptyList(),
     val unavailable: List<ConversionRecord> = emptyList(),
+    val isPremium: Boolean = false,
 )
 
 class HistoryViewModel(
@@ -31,6 +32,7 @@ class HistoryViewModel(
         HistoryUiState(
             available = available,
             unavailable = recent.filterNot { it.id in availableIds },
+            isPremium = limitState.isPremium,
         )
     }.stateIn(
         scope = viewModelScope,
