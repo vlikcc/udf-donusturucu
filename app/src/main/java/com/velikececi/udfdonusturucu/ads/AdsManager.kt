@@ -2,172 +2,136 @@ package com.velikececi.udfdonusturucu.ads
 
 import android.app.Activity
 import android.content.Context
-import android.util.Log
-import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.FullScreenContentCallback
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.*
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.velikececi.udfdonusturucu.BuildConfig
-import com.velikececi.udfdonusturucu.analytics.AnalyticsEvents
-import com.velikececi.udfdonusturucu.data.LimitRepository
-import com.velikececi.udfdonusturucu.data.SettingsRepository
+import com.velikececi.udfdonusturucu.data.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/**
- * AdsManager.swift'in Kotlin karşılığı. iOS `MobileAds.shared.start` + ATT izniyle başlıyordu;
- * Android'de ATT karşılığı yok, onun yerine [com.velikececi.udfdonusturucu.ads.ConsentManager]
- * ile UMP (GDPR) onayı alınıp [initialize] çağrılır.
- *
- * TODO(Faz 6): `interstitialUnitIdRelease`/`bannerUnitIdRelease` AdMob'da yeni Android uygulaması
- * oluşturulduğunda gerçek üretim ID'leriyle değiştirilecek — şu an Google'ın herkese açık Android
- * test ID'leri kullanılıyor (release derlemede bile), bu yüzden **gerçek gelir Faz 6 tamamlanana
- * kadar oluşmaz**.
- */
 class AdsManager(
     private val context: Context,
-    private val limitRepository: LimitRepository,
-    private val settingsRepository: SettingsRepository,
-    private val externalScope: CoroutineScope,
-    private val analytics: AnalyticsEvents,
+    private val preferencesRepository: UserPreferencesRepository
 ) {
-    companion object {
-        private const val TAG = "AdsManager"
+    private val scope = CoroutineScope(Dispatchers.Main)
 
-        val BANNER_UNIT_ID = if (BuildConfig.DEBUG) {
-            "ca-app-pub-3940256099942544/9214589741" // Google Android adaptive banner test ID
-        } else {
-            BuildConfig.ADMOB_BANNER_ID
-        }
-        val INTERSTITIAL_UNIT_ID = if (BuildConfig.DEBUG) {
-            "ca-app-pub-3940256099942544/1033173712" // Google Android interstitial test ID
-        } else {
-            BuildConfig.ADMOB_INTERSTITIAL_ID
-        }
-        val REWARDED_INTERSTITIAL_UNIT_ID = if (BuildConfig.DEBUG) {
-            "ca-app-pub-3940256099942544/5354046379" // Google Android rewarded interstitial test ID
-        } else {
-            BuildConfig.ADMOB_REWARDED_INTERSTITIAL_ID
-        }
-    }
-
-    private var loadedInterstitial: InterstitialAd? = null
-    private var loadedRewardedInterstitial: RewardedInterstitialAd? = null
+    private var interstitialAd: InterstitialAd? = null
+    private var rewardedInterstitialAd: RewardedInterstitialAd? = null
     private var isInitialized = false
 
-    val shouldShowAds: StateFlow<Boolean> = limitRepository.state
-        .map { !it.isPremium }
-        .stateIn(externalScope, SharingStarted.Eagerly, true)
+    companion object {
+        // Google Resmi Test ID'leri
+        const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
+        const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
+        const val TEST_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
 
-    fun initialize() {
+        // Build tipine ve FORCE_REAL_ADS bayrağına göre dinamik ID seçimi
+        val BANNER_UNIT_ID: String
+            get() = if (!BuildConfig.DEBUG || BuildConfig.FORCE_REAL_ADS) BuildConfig.PROD_BANNER_ID else TEST_BANNER_ID
+
+        val INTERSTITIAL_UNIT_ID: String
+            get() = if (!BuildConfig.DEBUG || BuildConfig.FORCE_REAL_ADS) BuildConfig.PROD_INTERSTITIAL_ID else TEST_INTERSTITIAL_ID
+
+        val REWARDED_INTERSTITIAL_ID: String
+            get() = if (!BuildConfig.DEBUG || BuildConfig.FORCE_REAL_ADS) BuildConfig.PROD_REWARDED_INTERSTITIAL_ID else TEST_REWARDED_INTERSTITIAL_ID
+    }
+
+    fun initialize(activity: Activity) {
         if (isInitialized) return
-        isInitialized = true
         MobileAds.initialize(context) {
-            preloadInterstitial()
-            preloadRewardedInterstitial()
+            isInitialized = true
+            loadInterstitial()
+            loadRewardedInterstitial()
         }
     }
 
-    // MARK: - Interstitial
-
-    private fun preloadInterstitial() {
-        if (!shouldShowAds.value || loadedInterstitial != null) return
+    fun loadInterstitial() {
+        val adRequest = AdRequest.Builder().build()
         InterstitialAd.load(
             context,
             INTERSTITIAL_UNIT_ID,
-            AdRequest.Builder().build(),
+            adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
-                    loadedInterstitial = ad
-                    ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                        override fun onAdDismissedFullScreenContent() {
-                            loadedInterstitial = null
-                            preloadInterstitial()
-                        }
-
-                        override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                            loadedInterstitial = null
-                            preloadInterstitial()
-                        }
-                    }
+                    interstitialAd = ad
                 }
-
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.w(TAG, "Interstitial yüklenemedi: ${error.message}")
-                    loadedInterstitial = null
+                    interstitialAd = null
                 }
-            },
+            }
         )
     }
 
-    /** `interstitialFrequency` (her 2. çağrı) eşiğine göre, hazırsa gösterir; değilse sessizce atlar. */
-    suspend fun showInterstitialIfDue(activity: Activity) {
-        if (!shouldShowAds.value) return
-        val shouldShow = settingsRepository.shouldShowInterstitial()
-        val ad = loadedInterstitial
-        if (shouldShow && ad != null) {
-            ad.show(activity)
+    fun showInterstitial(activity: Activity, onAdDismissed: () -> Unit) {
+        scope.launch {
+            val isPremium = preferencesRepository.isPremium.first()
+            if (isPremium) {
+                onAdDismissed()
+                return@launch
+            }
+
+            val ad = interstitialAd
+            if (ad != null) {
+                ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                    override fun onAdDismissedFullScreenContent() {
+                        interstitialAd = null
+                        loadInterstitial()
+                        onAdDismissed()
+                    }
+                    override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                        interstitialAd = null
+                        loadInterstitial()
+                        onAdDismissed()
+                    }
+                }
+                ad.show(activity)
+            } else {
+                loadInterstitial()
+                onAdDismissed()
+            }
         }
     }
 
-    // MARK: - Rewarded Interstitial
-
-    private fun preloadRewardedInterstitial() {
-        if (!shouldShowAds.value || loadedRewardedInterstitial != null) return
+    fun loadRewardedInterstitial() {
+        val adRequest = AdRequest.Builder().build()
         RewardedInterstitialAd.load(
             context,
-            REWARDED_INTERSTITIAL_UNIT_ID,
-            AdRequest.Builder().build(),
+            REWARDED_INTERSTITIAL_ID,
+            adRequest,
             object : RewardedInterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedInterstitialAd) {
-                    loadedRewardedInterstitial = ad
-                    ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                        override fun onAdDismissedFullScreenContent() {
-                            loadedRewardedInterstitial = null
-                            preloadRewardedInterstitial()
-                        }
-
-                        override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                            loadedRewardedInterstitial = null
-                            preloadRewardedInterstitial()
-                        }
-                    }
+                    rewardedInterstitialAd = ad
                 }
-
                 override fun onAdFailedToLoad(error: LoadAdError) {
-                    Log.w(TAG, "Rewarded interstitial yüklenemedi: ${error.message}")
-                    loadedRewardedInterstitial = null
+                    rewardedInterstitialAd = null
                 }
-            },
+            }
         )
     }
 
-    /**
-     * Ödüllü geçiş reklamını gösterir. Kullanıcı ödülü kazanırsa [LimitRepository.addBonusConversions]
-     * çağrılır ve [onReward] çalıştırılır. Reklam hazır değilse [onUnavailable] sessizce çalıştırılır
-     * (iOS ile aynı davranış — kullanıcıyı hata mesajıyla rahatsız etmez).
-     */
-    fun showRewarded(activity: Activity, onReward: () -> Unit = {}, onUnavailable: () -> Unit = {}) {
-        val ad = loadedRewardedInterstitial
-        if (!shouldShowAds.value || ad == null) {
-            onUnavailable()
-            return
-        }
-        ad.show(activity) {
-            externalScope.launch {
-                limitRepository.addBonusConversions(1)
-                analytics.rewardedAdWatched()
-                onReward()
+    fun showRewardedInterstitial(activity: Activity, onRewardEarned: () -> Unit) {
+        val ad = rewardedInterstitialAd
+        if (ad != null) {
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    rewardedInterstitialAd = null
+                    loadRewardedInterstitial()
+                }
+                override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                    rewardedInterstitialAd = null
+                    loadRewardedInterstitial()
+                }
             }
+            ad.show(activity) {
+                onRewardEarned()
+            }
+        } else {
+            loadRewardedInterstitial()
         }
     }
 }

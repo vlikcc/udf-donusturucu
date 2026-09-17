@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Evrak Dönüştürücü</string>
+    <string name="daily_limit_title">Günlük Ücretsiz Hak</string>
+    <string name="daily_limit_desc">Her gün 3 ücretsiz dönüştürme hakkınız bulunur.</string>
+    <string name="premium_unlimited">Sınırsız Dönüştürme (Premium)</string>
 </resources>

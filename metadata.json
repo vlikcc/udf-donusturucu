@@ -1,6 +1,6 @@
 {
   "name": "Evrak Dönüştürücü",
-  "description": "UYAP UDF belgelerini PDF ve Word formatına dönüştüren belge aracı.",
+  "description": "UDF, PDF ve Word (DOCX) belgelerini cihaz içinde güvenli ve hızlı şekilde birbirine dönüştürün.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

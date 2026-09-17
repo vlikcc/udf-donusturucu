@@ -141,7 +141,11 @@ android/app/src/main/java/com/velikececi/udfdonusturucu/
 - [ ] Gizlilik politikası URL'si: mevcut `web/gizlilik.html` herkese açık yayınlanacak; metne Android (AdMob/Play Billing) ibaresi eklenecek
 - [ ] Data Safety formu: Reklam kimliği + uygulama etkileşimi (AdMob, reklam amaçlı, 3. tarafla paylaşılıyor); belgelerin tamamen cihazda işlendiği ve toplanmadığı belirtilecek
 - [ ] "Reklam içerir" beyanı + IARC içerik derecelendirme anketi
-- [ ] AdMob: mevcut hesapta (`pub-1041738122428212`) **yeni Android uygulaması** + 3 reklam birimi (banner, interstitial, rewarded interstitial); debug'da Google'ın Android test ID'leri; `app-ads.txt` güncelle; yayın sonrası AdMob ↔ Play bağla
+- [x] AdMob: hesap (`pub-1041738122428212`) 3 gerçek reklam birimi entegre edildi:
+  - **Banner:** `ca-app-pub-1041738122428212/3416612776`
+  - **Geçiş (Interstitial):** `ca-app-pub-1041738122428212/4329554409`
+  - **Ödüllü Geçiş (Rewarded Interstitial):** `ca-app-pub-1041738122428212/2380645547`
+  - Release derlemelerinde ve AAB paketinde gerçek ID'ler kullanılır; debug'da test ID'leri veya opsiyonel `forceRealAds=true` desteği eklendi.
 - [ ] UMP: AdMob Privacy & Messaging'de GDPR mesajı; EEA debug geography ile test
 - [ ] Play Billing: tek seferlik ürün (ör. `unlimited_premium`), TRY fiyatı iOS ile aynı; lisans test kullanıcıları; faturalama ancak AAB test kanalındayken test edilebilir
 - [ ] ⚠️ Kasım 2023 sonrası açılmış **bireysel** geliştirici hesabıysa: üretim öncesi 12 testçiyle 14 gün kapalı test zorunlu — kapalı teste erken başla

@@ -1,33 +1,18 @@
-# macOS
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
 .DS_Store
-
-# Xcode
-build/
-DerivedData/
-*.xcuserstate
-xcuserdata/
-*.xcscmblueprint
-
-# Android & Gradle
-.gradle/
-build/
-app/build/
+/build
+/captures
+.externalNativeBuild
+.cxx
 local.properties
 keystore.properties
 *.jks
 *.keystore
-android/.gradle/
-android/local.properties
-android/keystore.properties
-android/**/build/
-
-# Firebase yapılandırması — Firebase Console'dan indirilir, gizli proje bilgisi içerir
-android/app/google-services.json
-
-# Claude Code oturum verisi
-.claude/
-
-.dfmt/
-
-# AdMob doğrulama dosyası — sunucuya elle yüklenir, repoda tutulmaz
-web/app-ads.txt

@@ -1,48 +1,51 @@
 import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
-// AnalyticsService.swift'teki "GoogleService-Info.plist bundle'da yoksa FirebaseApp.configure()
-// çağrılmaz" davranışının Android karşılığı: google-services plugin'i `google-services.json`
-// yoksa build'i (defaultConfig'e google_app_id/google_api_key string kaynağı üretemediği için)
-// patlatır — bu yüzden yalnızca dosya gerçekten varsa uygulanır. Dependency (aşağıda) koşulsuzdur;
-// FirebaseApp.getApps() boş kalır ve analytics/Analytics.kt no-op'a düşer.
-val hasFirebaseConfig = project.file("google-services.json").exists()
-if (hasFirebaseConfig) {
-    apply(plugin = "com.google.gms.google-services")
-}
-
-// Yayın imzalama bilgileri gizli tutulur: `android/keystore.properties` (.gitignore'da) varsa
-// oradan okunur; yoksa release derlemesi (CI/lokal test için) debug imzasına düşer — gerçek Play
-// Store yüklemesi öncesi bu dosya `keytool` ile üretilmiş gerçek bir keystore'a işaret etmeli.
+// 1. keystore.properties dosyasını oku (varsa)
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties().apply {
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.inputStream().use { load(it) }
-    }
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
-val hasReleaseKeystore = keystorePropertiesFile.exists()
 
-val admobAppId = keystoreProperties.getProperty("admobAppId")
+// AdMob Gerçek ve Test ID Tanımları
+val PROD_ADMOB_APP_ID = "ca-app-pub-1041738122428212~5886914438"
+val PROD_ADMOB_BANNER_ID = "ca-app-pub-1041738122428212/3416612776"
+val PROD_ADMOB_INTERSTITIAL_ID = "ca-app-pub-1041738122428212/4329554409"
+val PROD_ADMOB_REWARDED_INTERSTITIAL_ID = "ca-app-pub-1041738122428212/2380645547"
+
+val TEST_ADMOB_APP_ID = "ca-app-pub-3940256099942544~3347511713"
+
+// Öncelik sırası: keystore.properties > Ortam Değişkenleri (CI/CD) > Sabit Gerçek ID'ler
+val effectiveAdmobAppId = keystoreProperties.getProperty("admobAppId")
     ?: System.getenv("ADMOB_APP_ID")
-    ?: "ca-app-pub-3940256099942544~3347511713"
+    ?: PROD_ADMOB_APP_ID
 
-val admobBannerId = keystoreProperties.getProperty("admobBannerId")
+val effectiveBannerId = keystoreProperties.getProperty("admobBannerId")
     ?: System.getenv("ADMOB_BANNER_ID")
-    ?: "ca-app-pub-3940256099942544/9214589741"
+    ?: PROD_ADMOB_BANNER_ID
 
-val admobInterstitialId = keystoreProperties.getProperty("admobInterstitialId")
+val effectiveInterstitialId = keystoreProperties.getProperty("admobInterstitialId")
     ?: System.getenv("ADMOB_INTERSTITIAL_ID")
-    ?: "ca-app-pub-3940256099942544/1033173712"
+    ?: PROD_ADMOB_INTERSTITIAL_ID
 
-val admobRewardedInterstitialId = keystoreProperties.getProperty("admobRewardedInterstitialId")
+val effectiveRewardedInterstitialId = keystoreProperties.getProperty("admobRewardedInterstitialId")
     ?: System.getenv("ADMOB_REWARDED_INTERSTITIAL_ID")
-    ?: "ca-app-pub-3940256099942544/5354046379"
+    ?: PROD_ADMOB_REWARDED_INTERSTITIAL_ID
+
+val forceRealAds = (keystoreProperties.getProperty("forceRealAds")
+    ?: System.getenv("FORCE_REAL_ADS")
+    ?: "false").toBoolean()
+
+val hasReleaseKeystore = keystoreProperties.containsKey("storeFile") &&
+        file(keystoreProperties.getProperty("storeFile")).exists()
 
 android {
     namespace = "com.velikececi.udfdonusturucu"
@@ -56,26 +59,14 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables.useSupportLibrary = true
-        resourceConfigurations += setOf("tr")
 
-        manifestPlaceholders["admobAppId"] = admobAppId
-        buildConfigField("boolean", "HAS_FIREBASE", hasFirebaseConfig.toString())
-        buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobBannerId\"")
-        buildConfigField("String", "ADMOB_INTERSTITIAL_ID", "\"$admobInterstitialId\"")
-        buildConfigField("String", "ADMOB_REWARDED_INTERSTITIAL_ID", "\"$admobRewardedInterstitialId\"")
-
-        // Uygulama tamamen Türkçe; gereksiz dil kaynaklarının (kütüphanelerden gelen) APK/AAB'ye
-        // dahil edilmesini önler.
+        buildConfigField("String", "PROD_BANNER_ID", "\"$effectiveBannerId\"")
+        buildConfigField("String", "PROD_INTERSTITIAL_ID", "\"$effectiveInterstitialId\"")
+        buildConfigField("String", "PROD_REWARDED_INTERSTITIAL_ID", "\"$effectiveRewardedInterstitialId\"")
+        buildConfigField("boolean", "FORCE_REAL_ADS", "$forceRealAds")
     }
 
     signingConfigs {
-        getByName("debug") {
-            storeFile = file("${rootDir}/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
         if (hasReleaseKeystore) {
             create("release") {
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
@@ -87,15 +78,19 @@ android {
     }
 
     buildTypes {
+        debug {
+            val debugAppId = if (forceRealAds) effectiveAdmobAppId else TEST_ADMOB_APP_ID
+            manifestPlaceholders["admobAppId"] = debugAppId
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            manifestPlaceholders["admobAppId"] = effectiveAdmobAppId
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
-        }
-        debug {
-            isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
         }
     }
 
@@ -110,78 +105,56 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true // BuildConfig.DEBUG ile AdsManager'da debug/prod reklam ID ayrımı için
+        buildConfig = true
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-
-    bundle {
-        language {
-            enableSplit = false
-        }
-        density {
-            enableSplit = true
-        }
-        abi {
-            enableSplit = true
-        }
-    }
-
-    testOptions {
-        unitTests {
-            isIncludeAndroidResources = true
+            excludes += "/META-INF/INDEX.LIST"
+            excludes += "/META-INF/DEPENDENCIES"
         }
     }
 }
 
 dependencies {
-    implementation(libs.core.ktx)
-    implementation(libs.core.splashscreen)
-    implementation(libs.activity.compose)
-    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
 
-    implementation(platform(libs.compose.bom))
-    implementation(libs.compose.ui)
-    implementation(libs.compose.ui.graphics)
-    implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
 
-    implementation(libs.lifecycle.viewmodel.compose)
-    implementation(libs.lifecycle.runtime.compose)
-    implementation(libs.lifecycle.runtime.ktx)
-    implementation(libs.lifecycle.process)
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
-    implementation(libs.navigation.compose)
+    // DataStore Preferences
+    implementation(libs.androidx.datastore.preferences)
 
-    implementation(libs.datastore.preferences)
-    implementation(libs.kotlinx.serialization.json)
-
+    // Google AdMob & UMP
     implementation(libs.play.services.ads)
     implementation(libs.user.messaging.platform)
+
+    // Google Play Billing
     implementation(libs.billing.ktx)
+
+    // PDFBox Android
     implementation(libs.pdfbox.android)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-
-    implementation(libs.mlkit.text.recognition)
-    implementation(libs.kotlinx.coroutines.play.services)
-    implementation(libs.play.review.ktx)
-
-    debugImplementation(libs.compose.ui.tooling)
-    debugImplementation(libs.compose.ui.test.manifest)
+    // Apache POI (OOXML for docx)
+    implementation(libs.poi.ooxml)
 
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.robolectric)
-
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.espresso.core)
-    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
