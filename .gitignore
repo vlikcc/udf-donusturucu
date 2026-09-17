@@ -8,13 +8,18 @@ DerivedData/
 xcuserdata/
 *.xcscmblueprint
 
-# Android (kök .gitignore burada da geçerli olsun diye tekrarlanır; asıl kural android/.gitignore'da)
+# Android & Gradle
+.gradle/
+build/
+app/build/
+local.properties
+keystore.properties
+*.jks
+*.keystore
 android/.gradle/
 android/local.properties
 android/keystore.properties
 android/**/build/
-*.jks
-*.keystore
 
 # Firebase yapılandırması — Firebase Console'dan indirilir, gizli proje bilgisi içerir
 android/app/google-services.json
